@@ -7,7 +7,7 @@ import { z } from "zod"; // Or any validation library that supports Standard Sch
 
 const server = new FastMCP({
   name: "workflowy",
-  version: "0.1.0",
+  version: "0.1.3",
 });
 
 dotenv.config();
@@ -15,8 +15,4 @@ registerTools(server);
 
 server.start({
   transportType: "stdio"
-});
-
-server.start({
-  transportType: "stdio",
 });

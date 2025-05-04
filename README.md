@@ -1,3 +1,4 @@
+[![Install with NPX in VS Code](https://img.shields.io/badge/VS_Code-Install_Azure_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name%3DWorkflowy%20MCP&config%3D%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mcp-workflowy%40latest%22%2C%22server%22%2C%22start%22%5D%2C%20%22env%22%3A%20%7B%22WORKFLOWY_USERNAME%22%3A%22%22%2C%20%22WORKFLOWY_PASSWORD%22%3A%20%22%22%7D%7D)
 # Workflowy MCP
 
 A Model Context Protocol (MCP) server for interacting with Workflowy. This server provides an MCP-compatible interface to Workflowy, allowing AI assistants to interact with your Workflowy lists programmatically.
@@ -11,165 +12,77 @@ The Model Context Protocol (MCP) is a standardized way for AI models to interact
 - **Workflowy Integration**: Connect to your Workflowy account using username/password authentication
 - **MCP Compatibility**: Full support for the Model Context Protocol
 - **Tool Operations**: Search, create, update, and mark nodes as complete/incomplete in your Workflowy
-- **RESTful API**: Standard HTTP interface for MCP operations
 
-## Getting Started
+## Example Usage:
+Personally, I use workflowy as my project management tool.
+Giving my agent access to my notes, and my code base, the following are useful prompts:
+
+- "Show my all my notes on project XYZ in workflowy"
+- "Review the codebase, mark all completed notes as completed"
+- "Given my milestones on workflowy for this project, suggest what my next task should be"
+
+## Installation
 
 ### Prerequisites
-
-- Node.js (v16+)
+- Node.js v18 or higher
 - A Workflowy account
 
-### Installation
+### Quick Install
+```bash
+# Install the package globally
+npm install -g mcp-workflowy
 
-1. Clone this repository:
-   ```
-   git clone https://github.com/danield137/mcp-workflowy.git
-   cd mcp-workflowy
-   ```
-
-2. Install dependencies:
-   ```
-   npm install
-   ```
-
-3. Set up authentication:
-
-   Create a `.env` file in the project root with your Workflowy credentials:
-   ```
-   WORKFLOWY_USERNAME=your_username_here
-   WORKFLOWY_PASSWORD=your_password_here
-   PORT=3000  # Optional, default is 3000
-   ```
-
-### Build and Run
-
-1. Build the TypeScript code:
-   ```
-   npm run build
-   ```
-
-2. Start the server:
-   ```
-   npm start
-   ```
-
-   Or for development with auto-reloading:
-   ```
-   npm run dev
-   ```
-
-3. The server will be available at:
-   - MCP endpoint: http://localhost:3000/mcp
-   - Health check: http://localhost:3000/health
-
-## How it Works
-
-This server connects to your Workflowy account and exposes specific operations through the MCP interface. AI assistants that support MCP can then use these tools to interact with your Workflowy lists.
-
-## Available Tools
-
-The following tools are available through the MCP interface:
-
-### list_nodes
-
-List nodes in Workflowy, optionally filtering by parent node.
-
-**Parameters:**
-- `parentId` (optional): ID of the parent node. If omitted, returns root nodes.
-
-### search_nodes
-
-Search for nodes in Workflowy by query string.
-
-**Parameters:**
-- `query`: Search query to find matching nodes
-
-### create_node
-
-Create a new node in Workflowy.
-
-**Parameters:**
-- `parentId`: ID of the parent node where the new node will be created
-- `name`: Name/title of the new node
-- `description` (optional): Description/note for the new node
-
-### update_node
-
-Update an existing node in Workflowy.
-
-**Parameters:**
-- `nodeId`: ID of the node to update
-- `name` (optional): New name/title for the node
-- `description` (optional): New description/note for the node
-
-### toggle_complete
-
-Mark a node as complete/incomplete.
-
-**Parameters:**
-- `nodeId`: ID of the node to toggle completion status
-- `completed`: Whether the node should be marked as complete (true) or incomplete (false)
-
-## Testing
-
-You can run end-to-end tests using:
-```
-./run-e2e-tests.sh
+# Or use npx to run it directly
+npx mcp-workflowy server start
 ```
 
-This script will prompt you for your Workflowy credentials and then run tests that interact with your actual Workflowy account.
+## Configuration
 
-## VS Code Integration
+Create a `.env` file in your project directory with the following content:
 
-You can use this MCP server with Visual Studio Code to enable AI assistants like GitHub Copilot to interact with your Workflowy account.
+```
+WORKFLOWY_USERNAME=your_username_here
+WORKFLOWY_PASSWORD=your_password_here
+```
 
-### Setup
+Alternatively, you can provide these credentials as environment variables when running the server.
 
-1. Make sure your MCP server is running locally:
-   ```
-   npm start
-   ```
+## Usage
 
-2. Configure VS Code to use your local MCP server:
+### Starting the Server
+```bash
+# If installed globally
+mcp-workflowy server start
 
-   - Open VS Code settings (`Cmd+,` on MacOS)
-   - Search for "MCP"
-   - In the "Model Context Protocol: Servers" section, click "Edit in settings.json"
-   - Add the following configuration:
+# Using npx
+npx mcp-workflowy server start
+```
 
-   ```json
-   "modelContextProtocol.servers": [
-     {
-       "name": "Workflowy",
-       "url": "http://localhost:3000/sse",
-       "enabled": true,
-       "transport": "sse"
-     }
-   ]
-   ```
+### Available Tools
 
-3. Restart VS Code or reload the window (Command Palette → "Developer: Reload Window")
+This MCP server provides the following tools to interact with your Workflowy:
 
-### Usage
+1. **list_nodes** - Get a list of nodes from your Workflowy (root nodes or children of a specified node)
+2. **search_nodes** - Search for nodes by query text
+3. **create_node** - Create a new node in your Workflowy
+4. **update_node** - Modify an existing node's text or description
+5. **toggle_complete** - Mark a node as complete or incomplete
 
-Once configured, AI assistants in VS Code can interact with your Workflowy:
+## Integrating with AI Assistants
 
-1. Open a chat with your AI assistant
-2. Ask it to perform Workflowy tasks like:
-   - "List my top-level Workflowy items"
-   - "Create a new node with title 'Meeting Notes'"
-   - "How many ideas I have under 'project X'"
-   - "Given the codebase, which bullets in "project X" are still not done? mark the rest completed"
+To use this MCP server with AI assistants (like ChatGPT):
 
-The assistant will use the MCP tools to interact with your Workflowy through the local server.
+1. Start the MCP server as described above
+2. Connect your AI assistant to the MCP server (refer to your AI assistant's documentation)
+3. The AI assistant will now be able to read and manipulate your Workflowy lists
 
-### Troubleshooting
+## One-Click
+[![Install with NPX in VS Code](https://img.shields.io/badge/VS_Code-Install_Azure_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name%3DWorkflowy%20MCP&config%3D%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mcp-workflowy%40latest%22%2C%22server%22%2C%22start%22%5D%2C%20%22env%22%3A%20%7B%22WORKFLOWY_USERNAME%22%3A%22%22%2C%20%22WORKFLOWY_PASSWORD%22%3A%20%22%22%7D%7D)
 
-- If you get connection errors, ensure the server is running and check the port matches (default is 3000)
-- Check your `.env` file to make sure your Workflowy credentials are correct
-- Look at the server logs in your terminal for any authentication or connection issues
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT Licensed. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
