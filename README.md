@@ -2,11 +2,15 @@
 
 A Model Context Protocol (MCP) server for interacting with Workflowy. This server provides an MCP-compatible interface to Workflowy, allowing AI assistants to interact with your Workflowy lists programmatically.
 
+## What is MCP?
+
+The Model Context Protocol (MCP) is a standardized way for AI models to interact with external tools and APIs. This server implements MCP to allow AI assistants (like ChatGPT) to read and manipulate your Workflowy lists through a set of defined tools.
+
 ## Features
 
-- **Workflowy Integration**: Connect to your Workflowy account using session ID or username/password
+- **Workflowy Integration**: Connect to your Workflowy account using username/password authentication
 - **MCP Compatibility**: Full support for the Model Context Protocol
-- **Tool Operations**: Search, create, update, and delete Workflowy nodes
+- **Tool Operations**: Search, create, update, and mark nodes as complete/incomplete in your Workflowy
 - **RESTful API**: Standard HTTP interface for MCP operations
 
 ## Getting Started
@@ -20,8 +24,8 @@ A Model Context Protocol (MCP) server for interacting with Workflowy. This serve
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/workflowy-mcp.git
-   cd workflowy-mcp
+   git clone https://github.com/danield137/mcp-workflowy.git
+   cd mcp-workflowy
    ```
 
 2. Install dependencies:
@@ -33,18 +37,10 @@ A Model Context Protocol (MCP) server for interacting with Workflowy. This serve
 
    Create a `.env` file in the project root with your Workflowy credentials:
    ```
-   WORKFLOWY_SESSIONID=your_session_id
-   # Or use username/password (if session ID is not provided)
-   WORKFLOWY_USERNAME=your_username
-   WORKFLOWY_PASSWORD=your_password
+   WORKFLOWY_USERNAME=your_username_here
+   WORKFLOWY_PASSWORD=your_password_here
    PORT=3000  # Optional, default is 3000
    ```
-
-   To get your Workflowy session ID:
-   1. Log in to Workflowy in your browser
-   2. Open browser developer tools (F12)
-   3. Go to Application tab > Cookies > www.workflowy.com
-   4. Copy the value of the cookie named "sessionid"
 
 ### Build and Run
 
@@ -66,6 +62,10 @@ A Model Context Protocol (MCP) server for interacting with Workflowy. This serve
 3. The server will be available at:
    - MCP endpoint: http://localhost:3000/mcp
    - Health check: http://localhost:3000/health
+
+## How it Works
+
+This server connects to your Workflowy account and exposes specific operations through the MCP interface. AI assistants that support MCP can then use these tools to interact with your Workflowy lists.
 
 ## Available Tools
 
@@ -103,13 +103,6 @@ Update an existing node in Workflowy.
 - `name` (optional): New name/title for the node
 - `description` (optional): New description/note for the node
 
-### delete_node
-
-Delete a node from Workflowy.
-
-**Parameters:**
-- `nodeId`: ID of the node to delete
-
 ### toggle_complete
 
 Mark a node as complete/incomplete.
@@ -118,6 +111,65 @@ Mark a node as complete/incomplete.
 - `nodeId`: ID of the node to toggle completion status
 - `completed`: Whether the node should be marked as complete (true) or incomplete (false)
 
+## Testing
+
+You can run end-to-end tests using:
+```
+./run-e2e-tests.sh
+```
+
+This script will prompt you for your Workflowy credentials and then run tests that interact with your actual Workflowy account.
+
+## VS Code Integration
+
+You can use this MCP server with Visual Studio Code to enable AI assistants like GitHub Copilot to interact with your Workflowy account.
+
+### Setup
+
+1. Make sure your MCP server is running locally:
+   ```
+   npm start
+   ```
+
+2. Configure VS Code to use your local MCP server:
+
+   - Open VS Code settings (`Cmd+,` on MacOS)
+   - Search for "MCP"
+   - In the "Model Context Protocol: Servers" section, click "Edit in settings.json"
+   - Add the following configuration:
+
+   ```json
+   "modelContextProtocol.servers": [
+     {
+       "name": "Workflowy",
+       "url": "http://localhost:3000/sse",
+       "enabled": true,
+       "transport": "sse"
+     }
+   ]
+   ```
+
+3. Restart VS Code or reload the window (Command Palette → "Developer: Reload Window")
+
+### Usage
+
+Once configured, AI assistants in VS Code can interact with your Workflowy:
+
+1. Open a chat with your AI assistant
+2. Ask it to perform Workflowy tasks like:
+   - "List my top-level Workflowy items"
+   - "Create a new node with title 'Meeting Notes'"
+   - "How many ideas I have under 'project X'"
+   - "Given the codebase, which bullets in "project X" are still not done? mark the rest completed"
+
+The assistant will use the MCP tools to interact with your Workflowy through the local server.
+
+### Troubleshooting
+
+- If you get connection errors, ensure the server is running and check the port matches (default is 3000)
+- Check your `.env` file to make sure your Workflowy credentials are correct
+- Look at the server logs in your terminal for any authentication or connection issues
+
 ## License
 
-ISC Licensed. See the [LICENSE](LICENSE) file for details.
+MIT Licensed. See the [LICENSE](LICENSE) file for details.
