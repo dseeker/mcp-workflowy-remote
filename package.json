@@ -14,9 +14,7 @@
     "build": "bun build ./src/index.ts --outdir dist --target node && shx chmod +x dist/index.js",
     "prepack": "npm run build",
     "start": "node dist/index.js",
-    "test": "jest",
-    "postbuild": "chmod +x dist/index.js",
-    "postinstall": "chmod +x dist/index.js"
+    "postbuild": "chmod +x dist/index.js"
   },
   "engines": {
     "node": ">=18"
