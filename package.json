@@ -1,43 +1,51 @@
 {
   "name": "mcp-workflowy",
-  "version": "1.0.0",
-  "description": "An MCP server for workflowy",
-  "main": "index.js",
+  "version": "0.1.2",
+  "description": "MCP server that lets agents talk to Workflowy",
+  "bin": {
+    "mcpwf": "dist/index.js"
+  },
+  "type": "module",
+  "module": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "bun build ./src/index.ts --outdir dist --target node && shx chmod +x dist/index.js",
+    "prepack": "npm run build",
     "start": "node dist/index.js",
-    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "test:e2e": "jest --testPathPattern=__tests__/e2e"
+    "postbuild": "chmod +x dist/index.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/danield137/mcp-workflowy.git"
+  "engines": {
+    "node": ">=18"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "repository": "github:danield137/mcp-workflowy",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "workflowy",
+    "agent",
+    "cli"
+  ],
   "bugs": {
     "url": "https://github.com/danield137/mcp-workflowy/issues"
   },
   "homepage": "https://github.com/danield137/mcp-workflowy#readme",
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.1",
-    "@types/jest": "^29.5.14",
+    "@types/bun": "latest",
     "@types/node": "^22.15.3",
-    "jest": "^29.7.0",
+    "bun": "^1.2.11",
     "nodemon": "^3.1.10",
-    "ts-jest": "^29.3.2",
+    "shx": "^0.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
-    "cors": "^2.8.5",
+    "@valibot/to-json-schema": "^0.1.0",
     "dotenv": "^16.5.0",
-    "express": "^5.1.0",
+    "effect": "^3.14.18",
     "fastmcp": "^1.23.2",
     "workflowy": "^2.8.0"
   }
