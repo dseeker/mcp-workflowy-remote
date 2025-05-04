@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build": "bun build ./src/index.ts --outdir dist --target node && shx chmod +x dist/index.js",
+    "test": "bun test",
     "prepack": "npm run build",
     "start": "node dist/index.js",
     "postbuild": "chmod +x dist/index.js"
