@@ -27,7 +27,13 @@ Giving my agent access to my notes, and my code base, the following are useful p
 - Node.js v18 or higher
 - A Workflowy account
 
+
 ### Quick Install
+
+![NPM Version](https://img.shields.io/npm/v/mcp-workflowy)
+![NPM Downloads](https://img.shields.io/npm/dm/mcp-workflowy)
+
+
 ```bash
 # Install the package globally
 npm install -g mcp-workflowy
