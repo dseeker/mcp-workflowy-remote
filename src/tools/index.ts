@@ -11,7 +11,6 @@ export const toolRegistry: Record<string, any> = {
 // Helper to register tools with MCP server
 export function registerTools(server: FastMCP): void {
   Object.entries(toolRegistry).forEach(([name, tool]) => {
-    console.log(`Registering tool: ${name}`);
     server.addTool({
       name,
       description: tool.description,
