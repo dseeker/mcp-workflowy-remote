@@ -33,7 +33,7 @@
   },
   "homepage": "https://github.com/danield137/mcp-workflowy#readme",
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "1.2.16",
     "@types/node": "^22.15.3",
     "bun": "^1.2.11",
     "nodemon": "^3.1.10",
@@ -48,5 +48,9 @@
     "effect": "^3.14.18",
     "fastmcp": "^1.23.2",
     "workflowy": "^2.8.0"
+  },
+  "overrides": {
+    "cross-spawn": ">=7.0.5",
+    "brace-expansion": ">=2.0.0"
   }
 }
