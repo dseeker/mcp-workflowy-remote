@@ -33,7 +33,8 @@ jobs:
       - name: Get version from tag
         id: version
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          # Remove refs/tags/ prefix to get just the tag name
+          VERSION="${GITHUB_REF#refs/tags/}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Extracted version: $VERSION"
 
