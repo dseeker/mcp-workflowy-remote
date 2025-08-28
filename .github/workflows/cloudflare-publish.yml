@@ -61,7 +61,7 @@ jobs:
 
   deploy:
     needs: [version]
-    if: always() && (needs.version.outputs.released == 'true' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    if: always() && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     name: Deploy Workflowy MCP Server
 
