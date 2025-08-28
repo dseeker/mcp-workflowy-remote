@@ -24,7 +24,7 @@
   "engines": {
     "node": ">=18"
   },
-  "repository": "github:danield137/mcp-workflowy",
+  "repository": "github:dseeker/mcp-workflowy-remote",
   "license": "MIT",
   "keywords": [
     "mcp",
@@ -33,9 +33,9 @@
     "cli"
   ],
   "bugs": {
-    "url": "https://github.com/danield137/mcp-workflowy/issues"
+    "url": "https://github.com/dseeker/mcp-workflowy-remote/issues"
   },
-  "homepage": "https://github.com/danield137/mcp-workflowy#readme",
+  "homepage": "https://github.com/dseeker/mcp-workflowy-remote#readme",
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^11.1.0",
