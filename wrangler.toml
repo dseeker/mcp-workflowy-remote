@@ -1,6 +1,6 @@
 name = "mcp-workflowy-remote"
 compatibility_date = "2024-12-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat", "nodejs_als"]
 
 main = "dist/worker.js"
 
