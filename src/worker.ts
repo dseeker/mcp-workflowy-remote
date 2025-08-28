@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker implementation of the Workflowy MCP server
- * Implements MCP HTTP transport protocol (2025-03-26 spec)
+ * Implements MCP HTTP transport protocol with SSE support
  */
 
 import { z } from "zod";
