@@ -14,8 +14,10 @@ The Model Context Protocol (MCP) is a standardized way for AI models to interact
 ## Features
 
 - **Workflowy Integration**: Connect to your Workflowy account using username/password authentication
-- **MCP Compatibility**: Full support for the Model Context Protocol
+- **MCP HTTP Transport**: Full support for MCP HTTP transport protocol (2024-11-05 spec)
+- **Remote Deployment**: Secure Cloudflare Workers deployment with API key authentication
 - **Tool Operations**: Search, create, update, and mark nodes as complete/incomplete in your Workflowy
+- **Dual Protocol Support**: Both MCP JSON-RPC and legacy REST endpoints
 
 ## Example Usage:
 Personally, I use workflowy as my project management tool.
@@ -148,7 +150,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "workflowy-remote": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev"],
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev/mcp"],
       "env": {
         "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}",
         "WORKFLOWY_USERNAME": "your-workflowy-username",
@@ -165,7 +167,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "workflowy-remote": {
       "command": "npx", 
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev"],
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev/mcp"],
       "env": {
         "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}"
       }
@@ -176,23 +178,32 @@ Add to your `claude_desktop_config.json`:
 
 #### Step 5: Configure Claude Code
 
-Add to your MCP settings:
+**Option 1: Using HTTP Transport (Recommended)**
+```bash
+# Add remote MCP server using Claude Code CLI
+claude mcp add --transport http workflowy-remote https://your-worker-url.workers.dev/mcp --header "Authorization: Bearer your-api-key-here"
+```
 
+**Option 2: Using .mcp.json Configuration**
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "workflowy-remote": {
-      "url": "https://your-worker-url.workers.dev",
-      "headers": {
-        "Authorization": "Bearer your-api-key-here"
-      },
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev/mcp"],
       "env": {
+        "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}",
         "WORKFLOWY_USERNAME": "your-workflowy-username",
         "WORKFLOWY_PASSWORD": "your-workflowy-password"
       }
     }
   }
 }
+```
+
+**Verify Connection:**
+```bash
+claude mcp list
 ```
 
 ### 🛡️ Security Notes
@@ -212,6 +223,48 @@ Your worker URL is automatically extracted and displayed in the GitHub Action lo
 
 Use this exact URL in your MCP client configuration.
 
+### ✅ Deployment Verification
+
+After deployment, verify your MCP server is working:
+
+**1. Test Health Endpoint:**
+```bash
+curl https://your-worker-url.workers.dev/health
+```
+Expected response:
+```json
+{
+  "status": "ok",
+  "server": "workflowy-remote",
+  "version": "0.1.3",
+  "protocol": "2024-11-05"
+}
+```
+
+**2. Test MCP Protocol:**
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' \
+  https://your-worker-url.workers.dev/mcp
+```
+
+**3. Test Tools List:**
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}' \
+  https://your-worker-url.workers.dev/mcp
+```
+
+**4. Verify Claude Code Connection:**
+```bash
+claude mcp list
+# Should show: workflowy-remote: ... - ✓ Connected
+```
+
 ### 🔧 Manual Deployment
 
 ```bash
@@ -227,6 +280,119 @@ npm run dry-run
 ```
 
 See [SECURITY.md](SECURITY.md) for detailed security configuration and best practices.
+
+## 🔧 Troubleshooting
+
+### Common Issues and Solutions
+
+#### 1. "Failed to connect" Error
+**Problem:** MCP server shows as disconnected in `claude mcp list`
+**Solutions:**
+- Verify your worker URL includes `/mcp` endpoint: `https://your-worker.workers.dev/mcp`
+- Check API key is correctly set in authorization header
+- Test health endpoint first: `curl https://your-worker.workers.dev/health`
+- Ensure GitHub Action deployment completed successfully
+
+#### 2. "Unauthorized" Error
+**Problem:** API requests return 401 Unauthorized
+**Solutions:**
+- Verify `ALLOWED_API_KEYS` secret is set in GitHub repository
+- Ensure API key matches exactly (no extra spaces/characters)
+- Check that GitHub Action deployment uploaded secrets successfully
+- Generate a new API key: `openssl rand -base64 32`
+
+#### 3. "Tools not found" Error
+**Problem:** MCP server connects but no tools are available
+**Solutions:**
+- Test MCP protocol directly: use curl commands from verification section
+- Check worker logs in Cloudflare dashboard for errors
+- Verify Workflowy credentials are set (either in environment or client)
+- Test legacy REST endpoint: `https://your-worker.workers.dev/tools`
+
+#### 4. GitHub Action Deployment Fails
+**Problem:** Deployment workflow fails or times out
+**Solutions:**
+- Check all required secrets are set: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `ALLOWED_API_KEYS`
+- Verify Cloudflare API token has correct permissions (Workers:Edit, Zone:Read)
+- Ensure repository has Actions enabled
+- Check workflow logs for specific error messages
+
+#### 5. Workflowy Authentication Issues
+**Problem:** "Invalid credentials" or authentication failures
+**Solutions:**
+- Verify Workflowy username/password are correct
+- Try logging into Workflowy web interface to confirm credentials
+- Check if Workflowy account requires 2FA (not currently supported)
+- Set credentials in client configuration rather than server fallback
+
+### Debug Commands
+
+**Test MCP Protocol:**
+```bash
+# Test initialize
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer YOUR-KEY" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' \
+  https://your-worker.workers.dev/mcp
+
+# List available tools
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer YOUR-KEY" \
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}' \
+  https://your-worker.workers.dev/mcp
+
+# Test tool execution (replace with valid parentId)
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer YOUR-KEY" \
+  -d '{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "list_nodes", "arguments": {}}}' \
+  https://your-worker.workers.dev/mcp
+```
+
+**Check Claude Code Connection:**
+```bash
+# List all MCP servers
+claude mcp list
+
+# Remove server if needed
+claude mcp remove workflowy-remote -s local
+
+# Re-add server
+claude mcp add --transport http workflowy-remote https://your-worker.workers.dev/mcp --header "Authorization: Bearer YOUR-KEY"
+```
+
+## API Reference
+
+### MCP Protocol Endpoints
+
+- **POST /mcp** - MCP JSON-RPC endpoint
+  - `initialize` - Initialize MCP session
+  - `tools/list` - List available tools  
+  - `tools/call` - Execute a tool
+
+### Legacy REST Endpoints
+
+- **GET /health** - Health check (no auth required)
+- **GET /tools** - List tools in REST format
+- **GET /** - Server information
+
+### Available Tools
+
+1. **list_nodes** - List Workflowy nodes
+   - `parentId` (optional): Parent node ID
+   
+2. **search_nodes** - Search nodes by text
+   - `query` (required): Search query
+   
+3. **create_node** - Create new node
+   - `parentId` (required): Parent node ID
+   - `name` (required): Node title
+   - `description` (optional): Node content
+   
+4. **update_node** - Update existing node
+   - `nodeId` (required): Node ID to update
+   - `name` (optional): New title
+   - `description` (optional): New content
+   
+5. **toggle_complete** - Toggle completion status
+   - `nodeId` (required): Node ID
+   - `completed` (required): "true" or "false"
 
 ## Contributing
 
