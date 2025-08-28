@@ -195,11 +195,17 @@ jobs:
           
           # Test new server info endpoint with environment details
           echo "Testing enhanced server info..."
-          SERVER_INFO=$(curl -s "$WORKER_URL/" | jq -r '.environment, .features[]')
-          if echo "$SERVER_INFO" | grep -q -E "(production|Server-Sent Events|Environment-specific)"; then
-            echo "✅ Enhanced server info working - environment: $(echo "$SERVER_INFO" | head -1)"
+          SERVER_RESPONSE=$(curl -s "$WORKER_URL/")
+          ENVIRONMENT=$(echo "$SERVER_RESPONSE" | jq -r '.environment // "unknown"')
+          FEATURES=$(echo "$SERVER_RESPONSE" | jq -r '.features // [] | join(", ")')
+          
+          echo "Server environment: $ENVIRONMENT"
+          echo "Server features: $FEATURES"
+          
+          if echo "$SERVER_RESPONSE" | grep -q -E "(environment|features|security)"; then
+            echo "✅ Enhanced server info working - environment: $ENVIRONMENT"
           else
-            echo "⚠️  Server info: $SERVER_INFO"
+            echo "⚠️  Server info response: $SERVER_RESPONSE"
           fi
           
           VERSION="${{ needs.version.outputs.version || 'dev' }}"

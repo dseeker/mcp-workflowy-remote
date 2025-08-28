@@ -7,7 +7,7 @@
     [
       "@semantic-release/commit-analyzer",
       {
-        "preset": "conventionalcommits",
+        "preset": "angular",
         "releaseRules": [
           { "type": "feat", "release": "minor" },
           { "type": "fix", "release": "patch" },
@@ -20,31 +20,14 @@
           { "type": "ci", "release": "patch" },
           { "type": "build", "release": "patch" },
           { "type": "revert", "release": "patch" },
-          { "breaking": true, "release": "major" },
-          { "scope": "BREAKING", "release": "major" }
+          { "breaking": true, "release": "major" }
         ]
       }
     ],
     [
       "@semantic-release/release-notes-generator",
       {
-        "preset": "conventionalcommits",
-        "presetConfig": {
-          "types": [
-            { "type": "feat", "section": "🚀 Features" },
-            { "type": "fix", "section": "🐛 Bug Fixes" },
-            { "type": "perf", "section": "⚡ Performance Improvements" },
-            { "type": "docs", "section": "📚 Documentation" },
-            { "type": "style", "section": "💎 Styles" },
-            { "type": "refactor", "section": "📦 Code Refactoring" },
-            { "type": "test", "section": "🚨 Tests" },
-            { "type": "build", "section": "🛠 Builds" },
-            { "type": "ci", "section": "⚙️ Continuous Integrations" },
-            { "type": "chore", "section": "♻️ Chores" },
-            { "type": "revert", "section": "🗑 Reverts" },
-            { "type": "security", "section": "🔒 Security" }
-          ]
-        }
+        "preset": "angular"
       }
     ],
     [
@@ -62,8 +45,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "npm run build && npm run build:worker",
-        "publishCmd": "echo 'Version ${nextRelease.version} prepared for deployment'"
+        "prepareCmd": "npm run build && npm run build:worker"
       }
     ],
     [
@@ -72,8 +54,7 @@
         "assets": [
           "package.json",
           "package-lock.json",
-          "CHANGELOG.md",
-          "dist/**"
+          "CHANGELOG.md"
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
@@ -90,12 +71,7 @@
             "path": "dist/index.js", 
             "label": "Local Server Binary (${nextRelease.gitTag})"
           }
-        ],
-        "addReleases": "bottom",
-        "successComment": "🎉 This ${issue.pull_request ? 'PR is included' : 'issue has been resolved'} in version [${nextRelease.version}](${releases.filter(release => !!release.name)[0].url}) 🎉",
-        "failComment": "❌ The release from branch `${branch.name}` had failed due to the following errors:\n- ${errors.map(err => err.message).join('\\n- ')}",
-        "labels": ["released"],
-        "releasedLabels": ["released<%= nextRelease.version %>"]
+        ]
       }
     ]
   ]
