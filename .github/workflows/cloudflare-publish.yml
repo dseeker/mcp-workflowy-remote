@@ -32,38 +32,66 @@ jobs:
       - name: Build Worker
         run: npm run build:worker
 
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-          secrets: |
-            ALLOWED_API_KEYS
+      - name: Upload secrets and deploy to Cloudflare Workers
+        id: deploy
+        run: |
+          # First, upload the secrets
+          echo "🔑 Uploading secrets..."
+          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk
+          
+          # Then deploy and capture output
+          echo "🚀 Deploying worker..."
+          DEPLOY_OUTPUT=$(npx wrangler deploy 2>&1)
+          echo "$DEPLOY_OUTPUT"
+          
+          # Extract the worker URL from the output
+          WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[a-zA-Z0-9.-]*\.workers\.dev' | head -1)
+          
+          # Set as output for next step
+          echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
+          echo "✅ Captured worker URL: $WORKER_URL"
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
       - name: Verify deployment
         run: |
+          # Get the worker URL from the previous step
+          WORKER_URL="${{ steps.deploy.outputs.worker-url }}"
+          
+          if [ -z "$WORKER_URL" ]; then
+            echo "❌ Failed to capture worker URL from deployment step"
+            exit 1
+          fi
+          
+          # Extract first API key from comma-separated list for testing
+          FIRST_API_KEY=$(echo "$ALLOWED_API_KEYS" | cut -d',' -f1)
+          
+          if [ -z "$FIRST_API_KEY" ]; then
+            echo "❌ No API key available for testing"
+            exit 1
+          fi
+          
+          echo "🧪 Verifying deployment at: $WORKER_URL"
+          echo "🔑 Using first API key for testing: ${FIRST_API_KEY:0:10}..."
+          
           # Wait a moment for deployment to propagate
           sleep 30
           
-          WORKER_URL="https://mcp-workflowy-remote.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
-          echo "🧪 Verifying Cloudflare Worker deployment at $WORKER_URL"
-          
-          # Test health endpoint
+          # Test health endpoint (no auth required)
           echo "Testing health endpoint..."
-          curl -f "$WORKER_URL/health" || (echo "❌ Health check failed" && exit 1)
-          echo "✅ Health check passed"
+          HEALTH_RESPONSE=$(curl -f "$WORKER_URL/health" 2>/dev/null) || (echo "❌ Health check failed" && exit 1)
+          echo "✅ Health check passed: $HEALTH_RESPONSE"
           
-          # Test root endpoint
+          # Test root endpoint (no auth required)
           echo "Testing root endpoint..."
-          curl -f "$WORKER_URL/" | jq .name || (echo "❌ Root endpoint failed" && exit 1)
-          echo "✅ Root endpoint passed"
+          ROOT_NAME=$(curl -f "$WORKER_URL/" 2>/dev/null | jq -r .name) || (echo "❌ Root endpoint failed" && exit 1)
+          echo "✅ Root endpoint passed: $ROOT_NAME"
           
-          # Test tools listing
+          # Test tools listing (no auth required)
           echo "Testing tools endpoint..."
-          TOOLS_COUNT=$(curl -f "$WORKER_URL/tools" | jq '.tools | length')
+          TOOLS_COUNT=$(curl -f "$WORKER_URL/tools" 2>/dev/null | jq '.tools | length') || (echo "❌ Tools endpoint failed" && exit 1)
           if [ "$TOOLS_COUNT" -gt 0 ]; then
             echo "✅ Tools endpoint passed - $TOOLS_COUNT tools available"
           else
@@ -71,16 +99,36 @@ jobs:
             exit 1
           fi
           
-          # Test authentication requirement
-          echo "Testing authentication requirement..."
-          AUTH_TEST=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            "$WORKER_URL/tools/list_nodes" \
-            -H "Content-Type: application/json" \
-            -d '{}')
-          if [ "$AUTH_TEST" = "200" ]; then
-            echo "⚠️ Warning: Authentication bypass detected - tool executed without API key"
+          # Test authentication requirement (should fail without API key)
+          echo "Testing authentication requirement without API key..."
+          AUTH_RESPONSE=$(curl -s -X POST "$WORKER_URL/tools/list_nodes" -H "Content-Type: application/json" -d '{}')
+          if echo "$AUTH_RESPONSE" | grep -q "Unauthorized"; then
+            echo "✅ Authentication requirement working - unauthorized requests properly blocked"
           else
-            echo "✅ Authentication requirement working - unauthorized requests blocked"
+            echo "❌ Authentication bypass detected - this should not happen!"
+            echo "Response: $AUTH_RESPONSE"
+            exit 1
           fi
           
-          echo "🎉 All deployment verification tests passed"
+          # Test authenticated request (should succeed with API key)
+          echo "Testing authenticated request with valid API key..."
+          AUTH_SUCCESS=$(curl -s -X POST "$WORKER_URL/tools/list_nodes" \
+            -H "Authorization: Bearer $FIRST_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"workflowy_username":"test","workflowy_password":"test"}')
+          
+          # Should get either success or Workflowy credential error (both mean auth worked)
+          if echo "$AUTH_SUCCESS" | grep -q -E "(Error listing nodes|Successfully|content)"; then
+            echo "✅ API key authentication working - request processed"
+            echo "Response preview: $(echo "$AUTH_SUCCESS" | head -c 100)..."
+          else
+            echo "❌ API key authentication failed"
+            echo "Response: $AUTH_SUCCESS"
+            exit 1
+          fi
+          
+          echo "🎉 All deployment verification tests passed!"
+          echo "🚀 Your secure remote MCP server is ready at: $WORKER_URL"
+          echo "🔑 Use your API keys to authenticate MCP client requests"
+        env:
+          ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
