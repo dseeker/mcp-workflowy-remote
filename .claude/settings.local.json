@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:blog.cloudflare.com)",
+      "Bash(npm run build:worker:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(git checkout:*)",
+      "WebSearch",
+      "Bash(openssl rand:*)",
+      "Bash(grep:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

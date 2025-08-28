@@ -1,0 +1,20 @@
+name = "mcp-workflowy-remote"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+main = "dist/worker.js"
+
+[env.production]
+name = "mcp-workflowy-remote"
+
+[env.staging]
+name = "mcp-workflowy-remote-staging"
+
+# Environment variables for secure authentication
+[vars]
+# Add any public environment variables here
+
+# For private environment variables like API keys, use:
+# wrangler secret put ALLOWED_API_KEYS    # Comma-separated API keys for authentication
+# wrangler secret put WORKFLOWY_USERNAME  # Optional: fallback Workflowy username  
+# wrangler secret put WORKFLOWY_PASSWORD  # Optional: fallback Workflowy password

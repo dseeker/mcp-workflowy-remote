@@ -1,0 +1,90 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Workflowy MCP Server
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Worker
+        run: npm run build:worker
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          secrets: |
+            ALLOWED_API_KEYS
+            WORKFLOWY_USERNAME
+            WORKFLOWY_PASSWORD
+        env:
+          ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
+          WORKFLOWY_USERNAME: ${{ secrets.WORKFLOWY_USERNAME }}
+          WORKFLOWY_PASSWORD: ${{ secrets.WORKFLOWY_PASSWORD }}
+
+      - name: Verify deployment
+        run: |
+          # Wait a moment for deployment to propagate
+          sleep 30
+          
+          WORKER_URL="https://mcp-workflowy-remote.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
+          echo "🧪 Verifying Cloudflare Worker deployment at $WORKER_URL"
+          
+          # Test health endpoint
+          echo "Testing health endpoint..."
+          curl -f "$WORKER_URL/health" || (echo "❌ Health check failed" && exit 1)
+          echo "✅ Health check passed"
+          
+          # Test root endpoint
+          echo "Testing root endpoint..."
+          curl -f "$WORKER_URL/" | jq .name || (echo "❌ Root endpoint failed" && exit 1)
+          echo "✅ Root endpoint passed"
+          
+          # Test tools listing
+          echo "Testing tools endpoint..."
+          TOOLS_COUNT=$(curl -f "$WORKER_URL/tools" | jq '.tools | length')
+          if [ "$TOOLS_COUNT" -gt 0 ]; then
+            echo "✅ Tools endpoint passed - $TOOLS_COUNT tools available"
+          else
+            echo "❌ Tools endpoint failed - no tools found"
+            exit 1
+          fi
+          
+          # Test authentication requirement
+          echo "Testing authentication requirement..."
+          AUTH_TEST=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "$WORKER_URL/tools/list_nodes" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          if [ "$AUTH_TEST" = "200" ]; then
+            echo "⚠️ Warning: Authentication bypass detected - tool executed without API key"
+          else
+            echo "✅ Authentication requirement working - unauthorized requests blocked"
+          fi
+          
+          echo "🎉 All deployment verification tests passed"

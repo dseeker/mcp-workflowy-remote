@@ -12,10 +12,14 @@
   ],
   "scripts": {
     "build": "bun build ./src/index.ts --outdir dist --target node && shx chmod +x dist/index.js",
+    "build:worker": "bun build ./src/worker.ts --outdir dist --target bun --format esm",
     "test": "bun test",
     "prepack": "npm run build",
     "start": "node dist/index.js",
-    "postbuild": "chmod +x dist/index.js"
+    "postbuild": "chmod +x dist/index.js",
+    "deploy": "wrangler deploy",
+    "dev:worker": "wrangler dev",
+    "dry-run": "bash scripts/dry-run-deploy.sh"
   },
   "engines": {
     "node": ">=18"
@@ -39,7 +43,8 @@
     "nodemon": "^3.1.10",
     "shx": "^0.4.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "wrangler": "^3.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
