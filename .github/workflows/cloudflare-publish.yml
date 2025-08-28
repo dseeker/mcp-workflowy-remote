@@ -89,9 +89,9 @@ jobs:
           ROOT_NAME=$(curl -f "$WORKER_URL/" 2>/dev/null | jq -r .name) || (echo "❌ Root endpoint failed" && exit 1)
           echo "✅ Root endpoint passed: $ROOT_NAME"
           
-          # Test tools listing (no auth required)
+          # Test tools listing (with auth required)
           echo "Testing tools endpoint..."
-          TOOLS_COUNT=$(curl -f "$WORKER_URL/tools" 2>/dev/null | jq '.tools | length') || (echo "❌ Tools endpoint failed" && exit 1)
+          TOOLS_COUNT=$(curl -f "$WORKER_URL/tools" -H "Authorization: Bearer $FIRST_API_KEY" 2>/dev/null | jq '.tools | length') || (echo "❌ Tools endpoint failed" && exit 1)
           if [ "$TOOLS_COUNT" -gt 0 ]; then
             echo "✅ Tools endpoint passed - $TOOLS_COUNT tools available"
           else
@@ -101,7 +101,7 @@ jobs:
           
           # Test authentication requirement (should fail without API key)
           echo "Testing authentication requirement without API key..."
-          AUTH_RESPONSE=$(curl -s -X POST "$WORKER_URL/tools/list_nodes" -H "Content-Type: application/json" -d '{}')
+          AUTH_RESPONSE=$(curl -s -X POST "$WORKER_URL/mcp" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
           if echo "$AUTH_RESPONSE" | grep -q "Unauthorized"; then
             echo "✅ Authentication requirement working - unauthorized requests properly blocked"
           else
@@ -112,15 +112,15 @@ jobs:
           
           # Test authenticated request (should succeed with API key)
           echo "Testing authenticated request with valid API key..."
-          AUTH_SUCCESS=$(curl -s -X POST "$WORKER_URL/tools/list_nodes" \
+          AUTH_SUCCESS=$(curl -s -X POST "$WORKER_URL/mcp" \
             -H "Authorization: Bearer $FIRST_API_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"workflowy_username":"test","workflowy_password":"test"}')
+            -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}')
           
-          # Should get either success or Workflowy credential error (both mean auth worked)
-          if echo "$AUTH_SUCCESS" | grep -q -E "(Error listing nodes|Successfully|content)"; then
+          # Should get a valid JSON-RPC response with tools list
+          if echo "$AUTH_SUCCESS" | grep -q -E "(result|tools|jsonrpc)"; then
             echo "✅ API key authentication working - request processed"
-            echo "Response preview: $(echo "$AUTH_SUCCESS" | head -c 100)..."
+            echo "Response preview: $(echo "$AUTH_SUCCESS" | head -c 200)..."
           else
             echo "❌ API key authentication failed"
             echo "Response: $AUTH_SUCCESS"

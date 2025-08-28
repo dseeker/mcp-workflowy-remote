@@ -196,7 +196,22 @@ Add to your `claude_desktop_config.json`:
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`  
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
-**Most Secure (Client Credentials):**
+**Most Secure (Client Credentials via Headers):**
+```json
+{
+  "mcpServers": {
+    "workflowy-remote": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev/mcp"],
+      "env": {
+        "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\", \"X-Workflowy-Username\": \"your-workflowy-username\", \"X-Workflowy-Password\": \"your-workflowy-password\"}"
+      }
+    }
+  }
+}
+```
+
+**Alternative (Environment Variables - Legacy):**
 ```json
 {
   "mcpServers": {
@@ -230,13 +245,24 @@ Add to your `claude_desktop_config.json`:
 
 #### Step 5: Configure Claude Code
 
-**Option 1: Using HTTP Transport (Recommended)**
-```bash
-# Add remote MCP server using Claude Code CLI
-claude mcp add --transport http workflowy-remote https://your-worker-url.workers.dev/mcp --header "Authorization: Bearer your-api-key-here"
+**Option 1: Using HTTP Transport with Headers (Recommended)**
+```json
+{
+  "mcpServers": {
+    "workflowy-remote": {
+      "type": "http",
+      "url": "https://your-worker-url.workers.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer your-api-key-here",
+        "X-Workflowy-Username": "your-workflowy-username",
+        "X-Workflowy-Password": "your-workflowy-password"
+      }
+    }
+  }
+}
 ```
 
-**Option 2: Using .mcp.json Configuration**
+**Option 2: Using Fetch Server with Environment Variables**
 ```json
 {
   "mcpServers": {
@@ -244,9 +270,7 @@ claude mcp add --transport http workflowy-remote https://your-worker-url.workers
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev/mcp"],
       "env": {
-        "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}",
-        "WORKFLOWY_USERNAME": "your-workflowy-username",
-        "WORKFLOWY_PASSWORD": "your-workflowy-password"
+        "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\", \"X-Workflowy-Username\": \"your-workflowy-username\", \"X-Workflowy-Password\": \"your-workflowy-password\"}"
       }
     }
   }
