@@ -42,7 +42,7 @@ Choose between **Local Server** (runs on your machine) or **Remote Server** (hos
 **Quick Setup:**
 ```bash
 # Add the remote MCP server using Claude Code CLI
-claude mcp add --transport http workflowy-remote https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp --header "Authorization: Bearer YQGhAojAvvtGwenXL4GYl/zJHiNg+nvUcEqQ0egTImo="
+claude mcp add --transport http workflowy-remote https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp --header "Authorization: Bearer ********="
 
 # Verify connection
 claude mcp list
@@ -56,7 +56,7 @@ claude mcp list
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-fetch", "https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp"],
       "env": {
-        "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer YQGhAojAvvtGwenXL4GYl/zJHiNg+nvUcEqQ0egTImo=\"}",
+        "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer ******=\"}",
         "WORKFLOWY_USERNAME": "your-workflowy-username",
         "WORKFLOWY_PASSWORD": "your-workflowy-password"
       }
@@ -174,13 +174,20 @@ Add these secrets to your GitHub repository:
 - `WORKFLOWY_USERNAME` - Your Workflowy username (fallback)
 - `WORKFLOWY_PASSWORD` - Your Workflowy password (fallback)
 
-#### Step 3: Deploy
+#### Step 3: Deploy with Automatic Versioning
 Push to main/master branch. The GitHub Action automatically:
-- Builds and deploys the worker
-- Extracts and displays your worker URL
-- Configures authentication 
-- Runs comprehensive security validation tests
-- Shows deployment success with worker URL
+- **Semantic Versioning**: Analyzes commit messages and creates new versions
+- **Version Management**: Updates package.json and creates GitHub releases  
+- **Changelog Generation**: Creates and updates CHANGELOG.md
+- **Builds and Deployment**: Builds and deploys the versioned worker
+- **Security Validation**: Runs comprehensive security and functionality tests
+- **Release Notifications**: Shows deployment success with version and worker URL
+
+**Semantic Versioning Rules:**
+- `feat:` commits trigger **minor** version bumps (0.1.0 → 0.2.0)
+- `fix:` commits trigger **patch** version bumps (0.1.0 → 0.1.1)
+- `BREAKING CHANGE:` triggers **major** version bumps (0.1.0 → 1.0.0)
+- Other commits (`docs:`, `chore:`, etc.) trigger **patch** version bumps
 
 Look for this output in your GitHub Action logs:
 ```
@@ -473,6 +480,34 @@ claude mcp add --transport http workflowy-remote https://your-worker.workers.dev
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Commit Message Format
+
+This project uses [Conventional Commits](https://conventionalcommits.org/) for automatic semantic versioning:
+
+**Format:** `<type>(<scope>): <description>`
+
+**Types:**
+- `feat:` - New features (triggers minor version bump)
+- `fix:` - Bug fixes (triggers patch version bump)
+- `docs:` - Documentation changes (triggers patch version bump)
+- `style:` - Code style changes (triggers patch version bump)
+- `refactor:` - Code refactoring (triggers patch version bump)
+- `test:` - Adding or fixing tests (triggers patch version bump)
+- `chore:` - Maintenance tasks (triggers patch version bump)
+- `ci:` - CI/CD changes (triggers patch version bump)
+
+**Breaking Changes:** Add `BREAKING CHANGE:` in commit body or `!` after type (triggers major version bump)
+
+**Examples:**
+```
+feat: add search functionality to Workflowy nodes
+fix: resolve authentication issue with HTTP headers
+docs: update installation instructions for Claude Code
+feat!: change MCP protocol to version 2.0
+
+BREAKING CHANGE: MCP protocol updated to v2.0, requires client updates
+```
 
 ## License
 
