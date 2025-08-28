@@ -39,7 +39,7 @@ class WorkflowyMCPServer {
   protocolVersion = "2024-11-05";
 
   // Tool definitions adapted from FastMCP tools
-  tools: { [key: string]: { description: string, inputSchema: z.ZodSchema, handler: (params: any, env: any) => Promise<any> } } = {};
+  tools: { [key: string]: { description: string, inputSchema: z.ZodSchema, handler: (params: any, env: any, headers?: Headers) => Promise<any> } } = {};
 
   constructor() {
     // Convert FastMCP tools to MCP format
@@ -84,18 +84,18 @@ class WorkflowyMCPServer {
     return allowedKeys.includes(apiKey);
   }
 
-  private extractCredentials(params: any, env: any): { username?: string, password?: string } {
-    // Priority: 1. Client-provided credentials, 2. Environment fallback
+  private extractCredentials(params: any, env: any, headers?: Headers): { username?: string, password?: string } {
+    // Priority: 1. Client-provided credentials, 2. Headers, 3. Environment fallback
     return {
-      username: params.workflowy_username || env.WORKFLOWY_USERNAME,
-      password: params.workflowy_password || env.WORKFLOWY_PASSWORD
+      username: params.workflowy_username || headers?.get('X-Workflowy-Username') || env.WORKFLOWY_USERNAME,
+      password: params.workflowy_password || headers?.get('X-Workflowy-Password') || env.WORKFLOWY_PASSWORD
     };
   }
 
   private createEnvHandler(fastmcpHandler: Function) {
-    return async (params: any, env: any) => {
-      // Extract credentials (environment only for now)
-      const credentials = this.extractCredentials(params, env);
+    return async (params: any, env: any, headers?: Headers) => {
+      // Extract credentials from params, headers, or environment
+      const credentials = this.extractCredentials(params, env, headers);
       
       // Remove credentials from params to avoid passing to Workflowy API
       const { workflowy_username, workflowy_password, ...toolParams } = params;
@@ -108,7 +108,7 @@ class WorkflowyMCPServer {
   }
 
   // Handle MCP JSON-RPC messages
-  async handleJsonRpcRequest(request: JsonRpcRequest, env: any): Promise<JsonRpcResponse> {
+  async handleJsonRpcRequest(request: JsonRpcRequest, env: any, headers?: Headers): Promise<JsonRpcResponse> {
     try {
       switch (request.method) {
         case "initialize":
@@ -157,7 +157,7 @@ class WorkflowyMCPServer {
 
           // Validate and execute tool
           const validatedParams = tool.inputSchema.parse(toolArgs);
-          const result = await tool.handler(validatedParams, env);
+          const result = await tool.handler(validatedParams, env, headers);
           
           return {
             jsonrpc: "2.0",
@@ -281,7 +281,7 @@ export default {
             
             // Handle JSON-RPC request
             if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
-              const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env);
+              const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers);
               responses.push(response);
             }
           }
