@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "bun build ./src/index.ts --outdir dist --target node && shx chmod +x dist/index.js",
-    "build:worker": "bun build ./src/worker.ts --outdir dist --target bun --format esm",
+    "build:worker": "bun build ./src/worker.ts --outdir dist --target browser --format esm",
     "test": "bun test",
     "prepack": "npm run build",
     "start": "node dist/index.js",
