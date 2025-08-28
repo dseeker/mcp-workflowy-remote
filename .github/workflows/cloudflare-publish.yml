@@ -40,12 +40,8 @@ jobs:
           command: deploy
           secrets: |
             ALLOWED_API_KEYS
-            WORKFLOWY_USERNAME
-            WORKFLOWY_PASSWORD
         env:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
-          WORKFLOWY_USERNAME: ${{ secrets.WORKFLOWY_USERNAME }}
-          WORKFLOWY_PASSWORD: ${{ secrets.WORKFLOWY_PASSWORD }}
 
       - name: Verify deployment
         run: |
