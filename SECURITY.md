@@ -81,18 +81,51 @@ key1,key2,key3
 - `WORKFLOWY_USERNAME` - Your Workflowy username (optional)
 - `WORKFLOWY_PASSWORD` - Your Workflowy password (optional)
 
+### Step 2.5: Automated Deployment Testing
+
+The GitHub Action automatically tests your deployment with comprehensive security validation:
+
+#### What Gets Tested Automatically
+
+1. **Health Check**: Verifies the worker is responding
+2. **Root Endpoint**: Confirms server identity and version
+3. **Tools Listing**: Validates available MCP tools
+4. **Authentication Blocking**: Ensures unauthorized requests are rejected
+5. **API Key Authentication**: Tests Bearer token authentication works
+
+#### Deployment Output
+
+After successful deployment, you'll see:
+
+```
+🧪 Verifying deployment at: https://your-worker-url.workers.dev
+🔑 Using first API key for testing: XrZ8k3Nm9Q...
+✅ Health check passed: {"status":"ok","server":"workflowy-remote","version":"0.1.3"}
+✅ Root endpoint passed: workflowy-remote
+✅ Tools endpoint passed - 5 tools available
+✅ Authentication requirement working - unauthorized requests properly blocked
+✅ API key authentication working - request processed
+🎉 All deployment verification tests passed!
+🚀 Your secure remote MCP server is ready at: https://your-worker-url.workers.dev
+🔑 Use your API keys to authenticate MCP client requests
+```
+
+The GitHub Action automatically uses the first API key from your `ALLOWED_API_KEYS` secret for testing.
+
 ### Step 3: Configure MCP Client in Claude Desktop/Code
 
 After deployment, configure your MCP client to connect to the remote server.
 
 #### Find Your Worker URL
 
-After deployment, your worker URL will be:
+The GitHub Action automatically extracts and displays your worker URL after deployment. Look for this in the deployment logs:
+
 ```
-https://mcp-workflowy-remote.{your-cloudflare-account-id}.workers.dev
+✅ Captured worker URL: https://mcp-workflowy-remote-abc123.workers.dev
+🚀 Your secure remote MCP server is ready at: https://mcp-workflowy-remote-abc123.workers.dev
 ```
 
-You can find your account ID in the Cloudflare dashboard or GitHub Action logs.
+Your worker URL will be displayed in the deployment verification step output.
 
 #### Claude Desktop Configuration
 
@@ -105,7 +138,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "workflowy-remote": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://mcp-workflowy-remote.{account-id}.workers.dev"],
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev"],
       "env": {
         "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}"
       }
@@ -121,7 +154,7 @@ Then pass Workflowy credentials with each request by configuring tool parameters
   "mcpServers": {
     "workflowy-remote": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://mcp-workflowy-remote.{account-id}.workers.dev"],
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev"],
       "env": {
         "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}",
         "WORKFLOWY_USERNAME": "your-workflowy-username",
@@ -141,7 +174,7 @@ If you configured `WORKFLOWY_USERNAME` and `WORKFLOWY_PASSWORD` secrets during d
   "mcpServers": {
     "workflowy-remote": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://mcp-workflowy-remote.{account-id}.workers.dev"],
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev"],
       "env": {
         "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}"
       }
@@ -160,7 +193,7 @@ For Claude Code, add to your MCP settings:
 {
   "servers": {
     "workflowy-remote": {
-      "url": "https://mcp-workflowy-remote.{account-id}.workers.dev",
+      "url": "https://your-worker-url.workers.dev",
       "headers": {
         "Authorization": "Bearer your-api-key-here"
       },
@@ -179,7 +212,7 @@ For Claude Code, add to your MCP settings:
 {
   "servers": {
     "workflowy-remote": {
-      "url": "https://mcp-workflowy-remote.{account-id}.workers.dev",
+      "url": "https://your-worker-url.workers.dev",
       "headers": {
         "Authorization": "Bearer your-api-key-here"
       }
@@ -233,7 +266,7 @@ For Claude Code, add to your MCP settings:
 ### List Nodes (with client credentials)
 
 ```bash
-curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/list_nodes \
+curl -X POST https://your-worker-url.workers.dev/tools/list_nodes \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -245,7 +278,7 @@ curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/list_no
 ### Create Node (using server fallback)
 
 ```bash  
-curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/create_node \
+curl -X POST https://your-worker-url.workers.dev/tools/create_node \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -278,7 +311,7 @@ curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/create_
 
 #### Test Valid Key (Should Work)
 ```bash
-curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/list_nodes \
+curl -X POST https://your-worker-url.workers.dev/tools/list_nodes \
   -H "Authorization: Bearer your-valid-api-key" \
   -H "Content-Type: application/json" \
   -d '{"workflowy_username":"user","workflowy_password":"pass"}'
@@ -287,7 +320,7 @@ curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/list_no
 
 #### Test Invalid Key (Should Fail)
 ```bash
-curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/list_nodes \
+curl -X POST https://your-worker-url.workers.dev/tools/list_nodes \
   -H "Authorization: Bearer invalid-key" \
   -H "Content-Type: application/json" \
   -d '{}'
@@ -296,7 +329,7 @@ curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/list_no
 
 #### Test No Key (Should Fail)
 ```bash
-curl -X POST https://mcp-workflowy-remote.{account-id}.workers.dev/tools/list_nodes \
+curl -X POST https://your-worker-url.workers.dev/tools/list_nodes \
   -H "Content-Type: application/json" \
   -d '{}'
 # Expected: Error message with "Unauthorized - Invalid or missing API key"
@@ -329,21 +362,31 @@ wrangler secret list
 
 ## 🔍 Security Testing
 
-Test your deployment security:
+### Automated Testing (Recommended)
+
+The GitHub Action automatically performs comprehensive security testing during deployment. No manual testing required!
+
+### Manual Testing (Optional)
+
+If you want to manually verify your deployment security:
 
 ```bash
+# Replace with your actual worker URL from deployment logs
+WORKER_URL="https://your-actual-worker-url.workers.dev"
+API_KEY="your-actual-api-key"
+
 # Test 1: Unauthorized access should fail
-curl -X POST https://your-worker.workers.dev/tools/list_nodes \
+curl -X POST "$WORKER_URL/tools/list_nodes" \
   -H "Content-Type: application/json" \
   -d '{}'
-# Expected: Error message with "Unauthorized"
+# Expected: {"error":"Error executing tool: Unauthorized - Invalid or missing API key"}
 
 # Test 2: Valid API key should work  
-curl -X POST https://your-worker.workers.dev/tools/list_nodes \
-  -H "Authorization: Bearer valid-api-key" \
+curl -X POST "$WORKER_URL/tools/list_nodes" \
+  -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"workflowy_username": "user", "workflowy_password": "pass"}'
-# Expected: 200 OK with Workflowy data
+  -d '{"workflowy_username": "test", "workflowy_password": "test"}'
+# Expected: Either success response or Workflowy credential error (both mean auth worked)
 ```
 
 ## 📋 Security Checklist
@@ -352,9 +395,10 @@ Before deploying to production:
 
 - [ ] API keys generated and stored securely in GitHub secrets
 - [ ] Cloudflare secrets configured (`ALLOWED_API_KEYS`)
-- [ ] Authentication testing completed successfully  
-- [ ] MCP client configured with proper headers
-- [ ] Access logging and monitoring enabled
+- [ ] GitHub Action deployment completed with all tests passing
+- [ ] Worker URL captured from deployment logs
+- [ ] MCP client configured with proper headers and worker URL
+- [ ] Access logging and monitoring enabled in Cloudflare dashboard
 - [ ] API key rotation schedule established
 - [ ] Team members trained on security practices
 

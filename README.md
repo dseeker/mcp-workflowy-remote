@@ -123,8 +123,17 @@ Add these secrets to your GitHub repository:
 #### Step 3: Deploy
 Push to main/master branch. The GitHub Action automatically:
 - Builds and deploys the worker
-- Configures authentication
-- Runs security validation tests
+- Extracts and displays your worker URL
+- Configures authentication 
+- Runs comprehensive security validation tests
+- Shows deployment success with worker URL
+
+Look for this output in your GitHub Action logs:
+```
+🧪 Verifying deployment at: https://mcp-workflowy-remote-abc123.workers.dev
+✅ All deployment verification tests passed!
+🚀 Your secure remote MCP server is ready at: https://mcp-workflowy-remote-abc123.workers.dev
+```
 
 #### Step 4: Configure Claude Desktop
 
@@ -139,7 +148,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "workflowy-remote": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://mcp-workflowy-remote.{account-id}.workers.dev"],
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev"],
       "env": {
         "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}",
         "WORKFLOWY_USERNAME": "your-workflowy-username",
@@ -156,7 +165,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "workflowy-remote": {
       "command": "npx", 
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://mcp-workflowy-remote.{account-id}.workers.dev"],
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://your-worker-url.workers.dev"],
       "env": {
         "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer your-api-key-here\"}"
       }
@@ -173,7 +182,7 @@ Add to your MCP settings:
 {
   "servers": {
     "workflowy-remote": {
-      "url": "https://mcp-workflowy-remote.{account-id}.workers.dev",
+      "url": "https://your-worker-url.workers.dev",
       "headers": {
         "Authorization": "Bearer your-api-key-here"
       },
@@ -195,9 +204,13 @@ Add to your MCP settings:
 
 ### 📡 Your Deployed URL
 
-After deployment: `https://mcp-workflowy-remote.{your-account-id}.workers.dev`
+Your worker URL is automatically extracted and displayed in the GitHub Action logs after deployment. Copy this URL from the deployment verification output:
 
-Find your account ID in the Cloudflare dashboard or GitHub Action logs.
+```
+🚀 Your secure remote MCP server is ready at: https://mcp-workflowy-remote-abc123.workers.dev
+```
+
+Use this exact URL in your MCP client configuration.
 
 ### 🔧 Manual Deployment
 
