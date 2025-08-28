@@ -27,13 +27,53 @@ Giving my agent access to my notes, and my code base, the following are useful p
 - "Review the codebase, mark all completed notes as completed"
 - "Given my milestones on workflowy for this project, suggest what my next task should be"
 
-## Installation
+## Installation & Setup
 
-### Prerequisites
+Choose between **Local Server** (runs on your machine) or **Remote Server** (hosted on Cloudflare Workers).
+
+### Option 1: 🚀 Remote MCP Server (Recommended)
+
+**Benefits:** No local setup required, works from anywhere, secure cloud deployment
+
+**Prerequisites:**
+- A Workflowy account
+- Claude Code or Claude Desktop
+
+**Quick Setup:**
+```bash
+# Add the remote MCP server using Claude Code CLI
+claude mcp add --transport http workflowy-remote https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp --header "Authorization: Bearer YQGhAojAvvtGwenXL4GYl/zJHiNg+nvUcEqQ0egTImo="
+
+# Verify connection
+claude mcp list
+```
+
+**Alternative Setup (using .mcp.json):**
+```json
+{
+  "mcpServers": {
+    "workflowy-remote": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp"],
+      "env": {
+        "MCP_FETCH_HEADERS": "{\"Authorization\": \"Bearer YQGhAojAvvtGwenXL4GYl/zJHiNg+nvUcEqQ0egTImo=\"}",
+        "WORKFLOWY_USERNAME": "your-workflowy-username",
+        "WORKFLOWY_PASSWORD": "your-workflowy-password"
+      }
+    }
+  }
+}
+```
+
+### Option 2: 🏠 Local MCP Server
+
+**Benefits:** Full control, runs locally, no external dependencies
+
+**Prerequisites:**
 - Node.js v18 or higher
 - A Workflowy account
 
-### Quick Install
+**Quick Install:**
 
 ![NPM Version](https://img.shields.io/npm/v/mcp-workflowy)
 ![NPM Downloads](https://img.shields.io/npm/dm/mcp-workflowy)
@@ -46,20 +86,16 @@ npm install -g mcp-workflowy
 npx mcp-workflowy server start
 ```
 
-## Configuration
+**Configuration:**
 
-Create a `.env` file in your project directory with the following content:
+Create a `.env` file in your project directory:
 
 ```
 WORKFLOWY_USERNAME=your_username_here
 WORKFLOWY_PASSWORD=your_password_here
 ```
 
-Alternatively, you can provide these credentials as environment variables when running the server.
-
-## Usage
-
-### Starting the Server
+**Starting the Server:**
 ```bash
 # If installed globally
 mcp-workflowy server start
@@ -78,20 +114,36 @@ This MCP server provides the following tools to interact with your Workflowy:
 4. **update_node** - Modify an existing node's text or description
 5. **toggle_complete** - Mark a node as complete or incomplete
 
-## Integrating with AI Assistants
+## Quick Start Examples
 
-To use this MCP server with AI assistants (like ChatGPT):
+**For Remote Server Users:**
+```bash
+# After adding the remote server, you can immediately use it
+claude mcp list  # Should show: workflowy-remote: ... - ✓ Connected
+```
 
-1. Start the MCP server as described above
-2. Connect your AI assistant to the MCP server (refer to your AI assistant's documentation)
+**For Local Server Users:**
+1. Start the local MCP server: `npx mcp-workflowy server start`
+2. Configure your AI assistant to connect to `localhost:3000` (or your configured port)
 3. The AI assistant will now be able to read and manipulate your Workflowy lists
 
-## One-Click
+## Integrating with AI Assistants
+
+### Claude Code / Claude Desktop
+- **Remote**: Use the installation steps above
+- **Local**: Configure your `claude_desktop_config.json` to point to your local server
+
+### Other AI Assistants
+For other AI assistants (like ChatGPT with MCP support):
+1. **Remote**: Provide the MCP endpoint URL with authentication
+2. **Local**: Start the local server and connect to the local endpoint
+
+## One-Click Local Install
 [![Install with NPX in VS Code](https://img.shields.io/badge/VS_Code-Install_mcp_workflowy_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=Workflowy%20MCP&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mcp-workflowy%40latest%22%2C%22server%22%2C%22start%22%5D%2C%20%22env%22%3A%20%7B%22WORKFLOWY_USERNAME%22%3A%22%22%2C%20%22WORKFLOWY_PASSWORD%22%3A%20%22%22%7D%7D)
 
-## 🚀 Remote MCP Server (Cloudflare Workers)
+## 🏗️ Deploy Your Own Remote Server
 
-Deploy this MCP server to Cloudflare Workers for secure remote access from Claude Desktop or Claude Code.
+Want to deploy your own instance? Follow these steps to deploy this MCP server to Cloudflare Workers for secure remote access.
 
 ### 🔐 Secure Remote Deployment
 
