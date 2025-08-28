@@ -7,6 +7,7 @@ import { z } from "zod";
 import { workflowyTools } from "./tools/workflowy.js";
 import { workflowyClient } from "./workflowy/client.js";
 import packageJson from "../package.json" assert { type: "json" };
+import ConfigManager from "./config.js";
 
 // MCP JSON-RPC message types
 interface JsonRpcRequest {
@@ -217,17 +218,94 @@ class WorkflowyMCPServer {
 
 // Cloudflare Worker fetch handler implementing MCP HTTP transport
 export default {
+  // Handle Server-Sent Events for MCP communication
+  async handleSSE(request: Request, server: WorkflowyMCPServer, env: any): Promise<Response> {
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    // Send initial connection event
+    await writer.write(encoder.encode('data: {"type":"connection","status":"connected"}\n\n'));
+
+    // Handle incoming messages from the request body
+    if (request.body) {
+      const reader = request.body.getReader();
+      
+      const processMessages = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const text = new TextDecoder().decode(value);
+            const messages = text.split('\n').filter(line => line.trim());
+
+            for (const messageText of messages) {
+              try {
+                const message = JSON.parse(messageText);
+                
+                if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
+                  const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers);
+                  
+                  // Send response via SSE
+                  const sseData = `data: ${JSON.stringify(response)}\n\n`;
+                  await writer.write(encoder.encode(sseData));
+                }
+              } catch (error: any) {
+                // Send error via SSE
+                const errorResponse = {
+                  jsonrpc: "2.0",
+                  id: null,
+                  error: {
+                    code: -32700,
+                    message: `Parse error: ${error.message}`
+                  }
+                };
+                const sseData = `data: ${JSON.stringify(errorResponse)}\n\n`;
+                await writer.write(encoder.encode(sseData));
+              }
+            }
+          }
+        } catch (error: any) {
+          console.error('SSE processing error:', error);
+        } finally {
+          await writer.close();
+        }
+      };
+
+      // Process messages in background
+      processMessages();
+    }
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+      }
+    });
+  },
+
   async fetch(request: Request, env: any): Promise<Response> {
     const server = new WorkflowyMCPServer();
+    const config = new ConfigManager(env);
     
     // Validate API key for authenticated endpoints
     const validateAuth = () => {
       const apiKey = request.headers.get('Authorization')?.replace('Bearer ', '') || null;
-      if (!server.validateApiKey(apiKey, env)) {
-        return new Response('Unauthorized', { 
+      if (!config.validateApiKey(apiKey)) {
+        return new Response(JSON.stringify({
+          error: 'Unauthorized',
+          message: 'Invalid or missing API key',
+          environment: config.getEnvironment()
+        }), { 
           status: 401,
           headers: {
-            'Access-Control-Allow-Origin': '*'
+            'Content-Type': 'application/json',
+            ...config.getCorsHeaders()
           }
         });
       }
@@ -238,15 +316,27 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+        headers: config.getCorsHeaders()
       });
     }
 
     const url = new URL(request.url);
+    
+    // Server-Sent Events endpoint for MCP communication (authenticated)
+    if (url.pathname === '/sse') {
+      const authError = validateAuth();
+      if (authError) return authError;
+
+      // Handle SSE connection
+      if (request.headers.get('Accept') === 'text/event-stream') {
+        return this.handleSSE(request, server, env);
+      }
+      
+      return new Response('SSE endpoint requires text/event-stream Accept header', {
+        status: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    }
     
     // Health check endpoint (unauthenticated)
     if (url.pathname === '/health') {
@@ -365,20 +455,36 @@ export default {
 
     // Default response for root path
     if (url.pathname === '/') {
+      const serverConfig = config.getConfig();
+      
       return new Response(JSON.stringify({
         name: server.name,
         version: server.version,
         protocol: server.protocolVersion,
+        environment: config.getEnvironment(),
         description: "Workflowy MCP Server - Remote deployment on Cloudflare Workers",
         endpoints: {
           mcp: '/mcp',
+          ...(config.isFeatureEnabled('sse') && { sse: '/sse (Server-Sent Events)' }),
           health: '/health',
-          tools: '/tools (legacy)'
+          ...(config.isFeatureEnabled('legacyRest') && { tools: '/tools (legacy)' })
+        },
+        features: [
+          ...(config.isFeatureEnabled('jsonRpc') ? ['MCP JSON-RPC'] : []),
+          ...(config.isFeatureEnabled('sse') ? ['Server-Sent Events'] : []),
+          'HTTP Headers Auth',
+          'API Key Auth',
+          'Environment-specific Configuration'
+        ],
+        security: {
+          authRequired: config.shouldRequireAuth(),
+          rateLimit: serverConfig.rateLimit.enabled,
+          cors: serverConfig.cors.allowedOrigins.length < 5 ? 'Restricted' : 'Open'
         }
       }), {
         headers: { 
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
+          ...config.getCorsHeaders()
         }
       });
     }

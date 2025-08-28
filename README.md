@@ -14,10 +14,18 @@ The Model Context Protocol (MCP) is a standardized way for AI models to interact
 ## Features
 
 - **Workflowy Integration**: Connect to your Workflowy account using username/password authentication
-- **MCP HTTP Transport**: Full support for MCP HTTP transport protocol (2024-11-05 spec)
-- **Remote Deployment**: Secure Cloudflare Workers deployment with API key authentication
+- **Multiple Communication Protocols**: 
+  - **MCP HTTP Transport**: Full support for MCP HTTP transport protocol (2024-11-05 spec)
+  - **Server-Sent Events (SSE)**: Real-time bidirectional communication for improved performance
+  - **Legacy REST**: Backward compatibility support
+- **Environment-Aware Configuration**: Automatic environment detection (development/staging/production)
+- **Advanced Security**:
+  - API key authentication with environment-specific validation
+  - CORS policies based on deployment environment
+  - Rate limiting in staging/production environments
+- **Remote Deployment**: Secure Cloudflare Workers deployment with comprehensive testing
 - **Tool Operations**: Search, create, update, and mark nodes as complete/incomplete in your Workflowy
-- **Dual Protocol Support**: Both MCP JSON-RPC and legacy REST endpoints
+- **Semantic Versioning**: Automatic version management and changelog generation
 
 ## Example Usage:
 Personally, I use workflowy as my project management tool.
@@ -103,6 +111,43 @@ mcp-workflowy server start
 # Using npx
 npx mcp-workflowy server start
 ```
+
+### Communication Protocols
+
+This MCP server supports multiple communication methods for maximum compatibility:
+
+#### MCP JSON-RPC over HTTP (`/mcp`)
+Standard MCP protocol implementation for maximum compatibility:
+```bash
+curl -X POST https://your-worker-url.workers.dev/mcp \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}'
+```
+
+#### Server-Sent Events (`/sse`)
+Real-time bidirectional communication for improved performance:
+```bash
+curl -N https://your-worker-url.workers.dev/sse \
+  -H "Authorization: Bearer your-api-key" \
+  -H "Accept: text/event-stream" \
+  -H "Content-Type: application/json"
+```
+
+#### Legacy REST (`/tools`)
+Simple REST endpoints for backward compatibility (staging/development only):
+```bash
+curl https://your-worker-url.workers.dev/tools \
+  -H "Authorization: Bearer your-api-key"
+```
+
+### Environment-Specific Behavior
+
+The server automatically adapts its behavior based on the deployment environment:
+
+- **Development**: All features enabled, permissive CORS, no rate limiting
+- **Staging**: Security features enabled, some debugging features available
+- **Production**: Maximum security, optimized performance, legacy features disabled
 
 ### Available Tools
 

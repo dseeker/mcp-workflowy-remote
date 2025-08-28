@@ -56,10 +56,6 @@ jobs:
         uses: cycjimmy/semantic-release-action@v4
         with:
           semantic_version: 22
-          extra_plugins: |
-            @semantic-release/changelog
-            @semantic-release/git
-            @semantic-release/exec
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -182,6 +178,28 @@ jobs:
             echo "❌ API key authentication failed"
             echo "Response: $AUTH_SUCCESS"
             exit 1
+          fi
+          
+          # Test SSE endpoint availability (should require auth)
+          echo "Testing SSE endpoint..."
+          SSE_RESPONSE=$(curl -s -X POST "$WORKER_URL/sse" \
+            -H "Accept: text/event-stream" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          
+          if echo "$SSE_RESPONSE" | grep -q "Unauthorized"; then
+            echo "✅ SSE endpoint properly protected with authentication"
+          else
+            echo "⚠️  SSE endpoint response: $(echo "$SSE_RESPONSE" | head -c 100)..."
+          fi
+          
+          # Test new server info endpoint with environment details
+          echo "Testing enhanced server info..."
+          SERVER_INFO=$(curl -s "$WORKER_URL/" | jq -r '.environment, .features[]')
+          if echo "$SERVER_INFO" | grep -q -E "(production|Server-Sent Events|Environment-specific)"; then
+            echo "✅ Enhanced server info working - environment: $(echo "$SERVER_INFO" | head -1)"
+          else
+            echo "⚠️  Server info: $SERVER_INFO"
           fi
           
           VERSION="${{ needs.version.outputs.version || 'dev' }}"
