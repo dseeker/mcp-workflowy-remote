@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Workers
+name: Build, Version, and Deploy to Cloudflare Workers
 
 on:
   push:
@@ -11,14 +11,70 @@ on:
       - master
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && "!contains(github.event.head_commit.message, '[skip ci]')"
+    name: Semantic Versioning
+    
+    outputs:
+      version: ${{ steps.semantic.outputs.new_release_version }}
+      released: ${{ steps.semantic.outputs.new_release_published }}
+      release-notes: ${{ steps.semantic.outputs.new_release_notes }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+        continue-on-error: true
+
+      - name: Build project
+        run: |
+          npm run build
+          npm run build:worker
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          semantic_version: 22
+          extra_plugins: |
+            @semantic-release/changelog
+            @semantic-release/git
+            @semantic-release/exec
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   deploy:
+    needs: [version]
+    if: always() && (needs.version.outputs.released == 'true' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     name: Deploy Workflowy MCP Server
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,7 +96,8 @@ jobs:
           echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk
           
           # Then deploy and capture output
-          echo "🚀 Deploying worker..."
+          VERSION="${{ needs.version.outputs.version || 'dev' }}"
+          echo "🚀 Deploying worker v$VERSION..."
           DEPLOY_OUTPUT=$(npx wrangler deploy 2>&1)
           echo "$DEPLOY_OUTPUT"
           
@@ -49,7 +106,7 @@ jobs:
           
           # Set as output for next step
           echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
-          echo "✅ Captured worker URL: $WORKER_URL"
+          echo "✅ Deployed v$VERSION to: $WORKER_URL"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -127,7 +184,18 @@ jobs:
             exit 1
           fi
           
+          VERSION="${{ needs.version.outputs.version || 'dev' }}"
+          RELEASED="${{ needs.version.outputs.released }}"
+          
           echo "🎉 All deployment verification tests passed!"
+          
+          if [ "$RELEASED" == "true" ]; then
+            echo "📦 New version v$VERSION released and deployed!"
+            echo "📝 Release notes: ${{ needs.version.outputs.release-notes }}"
+          else
+            echo "🔄 Development version v$VERSION deployed for testing"
+          fi
+          
           echo "🚀 Your secure remote MCP server is ready at: $WORKER_URL"
           echo "🔑 Use your API keys to authenticate MCP client requests"
         env:

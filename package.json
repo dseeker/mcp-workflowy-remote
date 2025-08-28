@@ -1,6 +1,6 @@
 {
   "name": "mcp-workflowy",
-  "version": "0.0.0-dev",
+  "version": "0.1.0",
   "description": "MCP server that lets agents talk to Workflowy",
   "bin": {
     "mcp-workflowy": "dist/index.js"
@@ -37,10 +37,18 @@
   },
   "homepage": "https://github.com/danield137/mcp-workflowy#readme",
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^11.1.0",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^9.2.6",
+    "@semantic-release/npm": "^11.0.2",
+    "@semantic-release/release-notes-generator": "^12.1.0",
     "@types/bun": "1.2.16",
     "@types/node": "^22.15.3",
     "bun": "^1.2.11",
     "nodemon": "^3.1.10",
+    "semantic-release": "^22.0.12",
     "shx": "^0.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",

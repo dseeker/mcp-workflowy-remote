@@ -1,0 +1,102 @@
+{
+  "branches": [
+    "main",
+    "master"
+  ],
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          { "type": "feat", "release": "minor" },
+          { "type": "fix", "release": "patch" },
+          { "type": "perf", "release": "patch" },
+          { "type": "docs", "release": "patch" },
+          { "type": "style", "release": "patch" },
+          { "type": "refactor", "release": "patch" },
+          { "type": "test", "release": "patch" },
+          { "type": "chore", "release": "patch" },
+          { "type": "ci", "release": "patch" },
+          { "type": "build", "release": "patch" },
+          { "type": "revert", "release": "patch" },
+          { "breaking": true, "release": "major" },
+          { "scope": "BREAKING", "release": "major" }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            { "type": "feat", "section": "🚀 Features" },
+            { "type": "fix", "section": "🐛 Bug Fixes" },
+            { "type": "perf", "section": "⚡ Performance Improvements" },
+            { "type": "docs", "section": "📚 Documentation" },
+            { "type": "style", "section": "💎 Styles" },
+            { "type": "refactor", "section": "📦 Code Refactoring" },
+            { "type": "test", "section": "🚨 Tests" },
+            { "type": "build", "section": "🛠 Builds" },
+            { "type": "ci", "section": "⚙️ Continuous Integrations" },
+            { "type": "chore", "section": "♻️ Chores" },
+            { "type": "revert", "section": "🗑 Reverts" },
+            { "type": "security", "section": "🔒 Security" }
+          ]
+        }
+      }
+    ],
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        "npmPublish": false
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "npm run build && npm run build:worker",
+        "publishCmd": "echo 'Version ${nextRelease.version} prepared for deployment'"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "package.json",
+          "package-lock.json",
+          "CHANGELOG.md",
+          "dist/**"
+        ],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "dist/worker.js",
+            "label": "Cloudflare Worker Bundle (${nextRelease.gitTag})"
+          },
+          {
+            "path": "dist/index.js", 
+            "label": "Local Server Binary (${nextRelease.gitTag})"
+          }
+        ],
+        "addReleases": "bottom",
+        "successComment": "🎉 This ${issue.pull_request ? 'PR is included' : 'issue has been resolved'} in version [${nextRelease.version}](${releases.filter(release => !!release.name)[0].url}) 🎉",
+        "failComment": "❌ The release from branch `${branch.name}` had failed due to the following errors:\n- ${errors.map(err => err.message).join('\\n- ')}",
+        "labels": ["released"],
+        "releasedLabels": ["released<%= nextRelease.version %>"]
+      }
+    ]
+  ]
+}

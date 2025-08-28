@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { workflowyTools } from "./tools/workflowy.js";
 import { workflowyClient } from "./workflowy/client.js";
+import packageJson from "../package.json" assert { type: "json" };
 
 // MCP JSON-RPC message types
 interface JsonRpcRequest {
@@ -35,7 +36,7 @@ interface JsonRpcNotification {
 // MCP server implementation for Cloudflare Workers
 class WorkflowyMCPServer {
   name = "workflowy-remote";
-  version = "0.1.3";
+  version = packageJson.version;
   protocolVersion = "2024-11-05";
 
   // Tool definitions adapted from FastMCP tools
