@@ -228,11 +228,22 @@ Push to main/master branch. The GitHub Action automatically:
 - **Security Validation**: Runs comprehensive security and functionality tests
 - **Release Notifications**: Shows deployment success with version and worker URL
 
+**How Semantic Versioning Works:**
+1. **Push commits** to main/master branch
+2. **Semantic-release analyzes** commit messages since last release
+3. **Version calculation** based on conventional commit types
+4. **Release commit created** with updated package.json, package-lock.json, and CHANGELOG.md
+5. **Git tag created** (e.g., `v0.1.5`) to mark the release
+6. **Worker deployed** with new version
+7. **Pull the release commit** locally to sync package.json version
+
 **Semantic Versioning Rules:**
 - `feat:` commits trigger **minor** version bumps (0.1.0 → 0.2.0)
 - `fix:` commits trigger **patch** version bumps (0.1.0 → 0.1.1)
 - `BREAKING CHANGE:` triggers **major** version bumps (0.1.0 → 1.0.0)
 - Other commits (`docs:`, `chore:`, etc.) trigger **patch** version bumps
+
+**Important:** After deployment, run `git pull origin main` to sync the version update commit created by semantic-release.
 
 Look for this output in your GitHub Action logs:
 ```
@@ -364,7 +375,7 @@ Expected response:
 {
   "status": "ok",
   "server": "workflowy-remote",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "protocol": "2024-11-05"
 }
 ```
@@ -452,6 +463,15 @@ See [SECURITY.md](SECURITY.md) for detailed security configuration and best prac
 - Try logging into Workflowy web interface to confirm credentials
 - Check if Workflowy account requires 2FA (not currently supported)
 - Set credentials in client configuration rather than server fallback
+
+#### 6. Semantic Versioning Confusion
+**Problem:** Local package.json version doesn't match deployed version
+**Solutions:**
+- **This is normal!** Semantic-release creates a commit with updated package.json on the remote
+- Run `git pull origin main` to get the semantic-release commit locally
+- Check `git log --oneline origin/main -5` to see if there's a `chore(release): X.X.X [skip ci]` commit
+- Semantic-release uses git tags (not package.json) to track what's been released
+- The deployment version always reflects the actual released version
 
 ### Debug Commands
 
