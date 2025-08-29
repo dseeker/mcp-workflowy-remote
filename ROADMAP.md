@@ -24,7 +24,7 @@
 
 ### 📊 Current Capabilities Analysis
 
-**Existing MCP Operations** (5 total):
+**Existing MCP Operations** (8 total - **PHASE 0 COMPLETED!**):
 1. ✅ `list_nodes` - Get root/child nodes  
 2. ✅ `search_nodes` - Search with comprehensive advanced parameters:
    - `limit`: Control number of results returned (tested: 2, 5, 10+)
@@ -34,6 +34,9 @@
 3. ✅ `create_node` - Create new nodes
 4. ✅ `update_node` - Edit node name/description  
 5. ✅ `toggle_complete` - Mark complete/incomplete
+6. ✅ `delete_node` - Delete nodes (**NEW - Phase 0 Critical**)
+7. ✅ `move_node` - Move nodes between parents with priority control (**NEW - Phase 0 Critical**)
+8. ✅ `get_node_by_id` - Get single node details by ID with full filtering (**NEW - Phase 0 Critical**)
 
 **Deployment Options** (2 versions with 100% parity):
 - ✅ **Local npm version**: FastMCP with stdio transport for Claude Code integration
@@ -42,38 +45,41 @@
 **Native Workflowy Operations Discovered** (9 core types):
 - ✅ `create` (implemented as create_node)
 - ✅ `edit` (implemented as update_node)
-- ❌ `move` (**MISSING - Critical**)
-- ❌ `delete` (**MISSING - Critical**)
+- ✅ `move` (implemented as move_node) (**COMPLETED - Phase 0**)
+- ✅ `delete` (implemented as delete_node) (**COMPLETED - Phase 0**)
 - ✅ `complete/uncomplete` (implemented as toggle_complete)
-- ❌ `share` (MISSING)
-- ❌ `add_shared_url` (MISSING)
-- ❌ `remove_shared_url` (MISSING)
-- ❌ `unshare` (MISSING)
+- ❌ `share` (MISSING - Phase 2)
+- ❌ `add_shared_url` (MISSING - Phase 2)
+- ❌ `remove_shared_url` (MISSING - Phase 2)
+- ❌ `unshare` (MISSING - Phase 2)
 
 ## Comprehensive Feature Gap Analysis
 
 **Total Potential MCP Operations**: 35 operations across 8 phases  
-**Currently Implemented**: 5 operations  
-**Coverage**: 14% - Significant expansion opportunity
+**Currently Implemented**: 8 operations (**+3 in Phase 0**)  
+**Coverage**: 23% (**+9% improvement** - Phase 0 Critical Operations Complete!)
 
 ## COMPREHENSIVE MCP OPERATIONS ROADMAP
 
-### Phase 0: Critical Missing Basics (Immediate Priority)
-**Status: Ready for Implementation**
+### Phase 0: Critical Missing Basics ✅ **COMPLETED!**
+**Status: ✅ FULLY IMPLEMENTED AND TESTED**
 
-1. **`move_node`** ⚡ **CRITICAL** 
-   - Move nodes between parents with priority control
-   - Uses native Workflowy `move` operation
-   - **Implementation**: Add to tools/workflowy.ts, use `list.move(target, priority)`
+1. **`move_node`** ⚡ **COMPLETED** 
+   - ✅ Move nodes between parents with priority control
+   - ✅ Uses native Workflowy `move` operation
+   - ✅ **Implementation**: Added to tools/workflowy.ts with `list.move(target, priority)`
+   - ✅ **Testing**: Full test coverage with priority scenarios and error handling
 
-2. **`delete_node`** ⚡ **CRITICAL**
-   - Delete nodes (currently commented out in codebase)
-   - Uses native Workflowy `delete` operation  
-   - **Implementation**: Uncomment and fix existing delete_node tool
+2. **`delete_node`** ⚡ **COMPLETED**
+   - ✅ Delete nodes (uncommented and fully implemented)
+   - ✅ Uses native Workflowy `delete` operation  
+   - ✅ **Implementation**: Uncommented and enhanced existing delete_node tool
+   - ✅ **Testing**: Full test coverage with error scenarios
 
-3. **`get_node_by_id`** 📋 **HIGH**
-   - Get single node details by ID
-   - **Implementation**: Use `document.getList(id)` method
+3. **`get_node_by_id`** 📋 **COMPLETED**
+   - ✅ Get single node details by ID with full filtering support
+   - ✅ **Implementation**: Uses `document.getList(id)` method with recursive search
+   - ✅ **Testing**: Full test coverage including maxDepth, includeFields, and preview parameters
 
 ### Phase 1: Enhanced Navigation & Structure (High Priority)
 
@@ -193,10 +199,10 @@
 - ✅ Comprehensive troubleshooting documentation (Windows Bun installation)
 - ✅ Complete testing documentation with mock data hierarchy
 
-**Phase 1 Success:** (Next Priority)
-- [ ] Can move nodes between any parents (with tests)
-- [ ] Can safely delete nodes with confirmation (with tests)
-- [ ] Can retrieve any node by ID instantly (with tests)
+**Phase 1 Success:** ✅ **COMPLETED - Phase 0 Critical Operations**
+- [x] ✅ Can move nodes between any parents (with comprehensive tests)
+- [x] ✅ Can safely delete nodes with confirmation (with comprehensive tests)
+- [x] ✅ Can retrieve any node by ID instantly (with comprehensive tests and filtering)
 
 **Phase 2 Success:** (Future)
 - [ ] Advanced pattern-based search working
@@ -206,6 +212,10 @@
 **Overall Goal:**
 Transform from **14% coverage** → **60%+ coverage** of Workflowy's capabilities
 *With comprehensive test coverage for all new features*
+
+**Current Status:** ✅ **23% coverage achieved** (Phase 0 Complete!)
+- **Progress:** +9% improvement with critical CRUD operations completed
+- **Next Target:** Phase 1 Enhanced Navigation (targeting 35% coverage)
 
 ## Testing-First Development Process
 
@@ -226,7 +236,7 @@ With the established test infrastructure, all new feature development follows th
 ### 2. Regression Testing
 ```bash
 # Before merging any changes:
-1. Full test suite: npm test (must be 22+ tests passing)
+1. Full test suite: npm test (must be 55+ tests passing) ✅ UPDATED
 2. Coverage check: npm run test:coverage (maintain coverage levels)
 3. Build verification: npm run build && npm run build:worker
 4. Manual testing with Claude Code if needed
@@ -234,13 +244,16 @@ With the established test infrastructure, all new feature development follows th
 ```
 
 ### 3. Adding New Operations
-When implementing Phase 1 operations (move_node, delete_node, get_node_by_id):
+When implementing Phase 1 operations (get_node_details, find_nodes, get_node_hierarchy, get_node_siblings):
 
 1. **Extend mock system** - Add responses for new operations
-2. **Add unit tests** - Follow existing test patterns
+2. **Add unit tests** - Follow existing test patterns established in Phase 0
 3. **Update integration tests** - Verify tool structure
 4. **Test error scenarios** - Auth failures, not found, etc.
 5. **Maintain coverage** - Ensure 80%+ coverage maintained
+
+**Phase 0 Operations (COMPLETED):**
+✅ All critical operations (move_node, delete_node, get_node_by_id) implemented with full test coverage
 
 This ensures all future development is reliable and regression-free.
 

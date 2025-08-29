@@ -160,45 +160,52 @@ export const workflowyTools: Record<string, any> = {
     }
   },
 
-//   delete_node: {
-//     description: "Delete a node",
-//     inputSchema: {
-//       nodeId: z.string().describe("ID of the node to delete")
-//     },
-//     annotations: {
-//         title: "Search nodes in Workflowy",
-//         readOnlyHint: false,
-//         destructiveHint: true,
-//         idempotentHint: false,
-//         openWorldHint: false
-//     },
-//     handler: async ({ nodeId, username, password }:
-//         { nodeId: string, username?: string, password?: string },
-//         client: typeof workflowyClient) => {
-//       try {
-//         await workflowyClient.deleteNode(nodeId, username, password);
-//         return {
-//           content: [{
-//             type: "text",
-//             text: `Successfully deleted node ${nodeId}`
-//           }]
-//         };
-//       } catch (error: any) {
-//         return {
-//           content: [{
-//             type: "text",
-//             text: `Error deleting node: ${error.message}`
-//           }]
-//         };
-//       }
-//     }
-//   },
+  delete_node: {
+    description: "Delete a node",
+    inputSchema: {
+      nodeId: z.string().describe("ID of the node to delete")
+    },
+    annotations: {
+        title: "Delete a node in Workflowy",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false
+    },
+    handler: async ({ nodeId, username, password }:
+        { nodeId: string, username?: string, password?: string },
+        client: typeof workflowyClient) => {
+      try {
+        await workflowyClient.deleteNode(nodeId, username, password);
+        return {
+          content: [{
+            type: "text",
+            text: `Successfully deleted node ${nodeId}`
+          }]
+        };
+      } catch (error: any) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error deleting node: ${error.message}`
+          }]
+        };
+      }
+    }
+  },
 
   toggle_complete: {
     description: "Toggle completion status of a node",
     inputSchema: {
       nodeId: z.string().describe("ID of the node to toggle completion status"),
       completed: z.boolean().describe("Whether the node should be marked as complete (true) or incomplete (false)")
+    },
+    annotations: {
+        title: "Toggle completion status of a node",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
     },
     handler: async ({ nodeId, completed, username, password }:
         { nodeId: string, completed: boolean, username?: string, password?: string },
@@ -216,6 +223,80 @@ export const workflowyTools: Record<string, any> = {
           content: [{
             type: "text",
             text: `Error toggling completion status: ${error.message}`
+          }]
+        };
+      }
+    }
+  },
+
+  move_node: {
+    description: "Move a node to a different parent with optional priority control",
+    inputSchema: {
+      nodeId: z.string().describe("ID of the node to move"),
+      newParentId: z.string().describe("ID of the new parent node"),
+      priority: z.number().optional().describe("Priority/position within the new parent (0 = first position)")
+    },
+    annotations: {
+        title: "Move a node to different parent",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false
+    },
+    handler: async ({ nodeId, newParentId, priority, username, password }:
+        { nodeId: string, newParentId: string, priority?: number, username?: string, password?: string },
+        client: typeof workflowyClient) => {
+      try {
+        await workflowyClient.moveNode(nodeId, newParentId, priority, username, password);
+        const priorityText = priority !== undefined ? ` at position ${priority}` : '';
+        return {
+          content: [{
+            type: "text",
+            text: `Successfully moved node ${nodeId} to parent ${newParentId}${priorityText}`
+          }]
+        };
+      } catch (error: any) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error moving node: ${error.message}`
+          }]
+        };
+      }
+    }
+  },
+
+  get_node_by_id: {
+    description: "Get a single node by its ID with full details",
+    inputSchema: {
+      nodeId: z.string().describe("ID of the node to retrieve"),
+      maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Available: id, name, note, isCompleted (default: all)"),
+      preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
+    },
+    annotations: {
+        title: "Get node by ID",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+    },
+    handler: async ({ nodeId, maxDepth, includeFields, preview, username, password }:
+        { nodeId: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string },
+        client: typeof workflowyClient) => {
+      try {
+        const node = await workflowyClient.getNodeById(nodeId, username, password, maxDepth, includeFields, preview);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(node, null, 2)
+          }]
+        };
+      } catch (error: any) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error retrieving node: ${error.message}`
           }]
         };
       }

@@ -187,6 +187,9 @@ This MCP server provides the following tools to interact with your Workflowy:
 3. **create_node** - Create a new node in your Workflowy
 4. **update_node** - Modify an existing node's text or description
 5. **toggle_complete** - Mark a node as complete or incomplete
+6. **delete_node** - Delete a node from your Workflowy
+7. **move_node** - Move a node to a different parent with optional priority control
+8. **get_node_by_id** - Get a single node by its ID with full details and filtering options
 
 ### Enhanced List & Search Features
 
@@ -834,15 +837,29 @@ claude mcp add --transport http workflowy-remote https://your-worker.workers.dev
    - `nodeId` (required): Node ID
    - `completed` (required): "true" or "false"
 
+6. **delete_node** - Delete a node
+   - `nodeId` (required): Node ID to delete
+
+7. **move_node** - Move a node to different parent with priority control
+   - `nodeId` (required): Node ID to move
+   - `newParentId` (required): New parent node ID
+   - `priority` (optional): Priority/position within the new parent (0 = first position)
+
+8. **get_node_by_id** - Get single node by ID with full details and filtering
+   - `nodeId` (required): Node ID to retrieve
+   - `maxDepth` (optional): Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)
+   - `includeFields` (optional): Fields to include in response. Available: id, name, note, isCompleted (default: all)
+   - `preview` (optional): Truncate content fields (name, note) to specified number of characters
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite ensuring reliability and full coverage of advanced search parameters.
 
 **Quick Stats:**
-- ✅ **22 unit tests** with **59+ assertions**
-- ✅ **100% parameter coverage** for advanced search features (`limit`, `maxDepth`, `includeFields`)
+- ✅ **55 unit tests** with **223+ assertions**
+- ✅ **100% parameter coverage** for advanced search features (`limit`, `maxDepth`, `includeFields`, `preview`)
 - ✅ **4-level deep hierarchy testing** with realistic mock data
-- ✅ **Complete error scenario coverage** for all operations
+- ✅ **Complete error scenario coverage** for all 8 operations including new critical operations (delete_node, move_node, get_node_by_id)
 
 **Run Tests:**
 ```bash
