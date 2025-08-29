@@ -223,21 +223,42 @@ jobs:
             echo "🚀 Creating preview version for preview branch"
           fi
           
-          # Upload new version (Cloudflare generates unique preview URL automatically)
-          DEPLOY_OUTPUT=$(npx wrangler versions upload --tag "$VERSION_TAG" --message "Preview: Phase 0 Critical Operations" 2>&1)
+          # Upload new version with persistent preview alias
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PRs, create both version-specific and pr alias
+            DEPLOY_OUTPUT=$(npx wrangler versions upload --tag "$VERSION_TAG" --preview-alias "pr${{ github.event.number }}" --message "Preview: PR #${{ github.event.number }}" 2>&1)
+          else
+            # For preview branch, always update the "preview" alias
+            DEPLOY_OUTPUT=$(npx wrangler versions upload --tag "$VERSION_TAG" --preview-alias "preview" --message "Preview: Phase 0 Critical Operations" 2>&1)
+          fi
           echo "$DEPLOY_OUTPUT"
           
-          # Extract version ID and preview URL from wrangler output
+          # Extract version ID and preview URLs from wrangler output
           VERSION_ID=$(echo "$DEPLOY_OUTPUT" | grep -o 'Version ID: [a-f0-9-]*' | cut -d' ' -f3)
-          PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'Version Preview URL: https://[^[:space:]]*' | cut -d' ' -f4)
+          VERSION_PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'Version Preview URL: https://[^[:space:]]*' | cut -d' ' -f4)
+          ALIAS_PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'Alias Preview URL: https://[^[:space:]]*' | cut -d' ' -f4)
+          
+          # Use alias URL as primary preview URL, fall back to version URL
+          if [ -n "$ALIAS_PREVIEW_URL" ]; then
+            PREVIEW_URL="$ALIAS_PREVIEW_URL"
+          else
+            PREVIEW_URL="$VERSION_PREVIEW_URL"
+          fi
           
           echo "version-id=$VERSION_ID" >> $GITHUB_OUTPUT
           echo "preview-url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+          echo "version-preview-url=$VERSION_PREVIEW_URL" >> $GITHUB_OUTPUT
+          echo "alias-preview-url=$ALIAS_PREVIEW_URL" >> $GITHUB_OUTPUT
           echo "version-tag=$VERSION_TAG" >> $GITHUB_OUTPUT
           
           echo "✅ Preview version created: $VERSION_TAG"
           echo "📝 Version ID: $VERSION_ID"
-          echo "🔗 Preview URL: $PREVIEW_URL"
+          if [ -n "$ALIAS_PREVIEW_URL" ]; then
+            echo "🔗 Persistent Alias URL: $ALIAS_PREVIEW_URL"
+            echo "🔗 Version-specific URL: $VERSION_PREVIEW_URL"
+          else
+            echo "🔗 Preview URL: $PREVIEW_URL"
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -245,6 +266,8 @@ jobs:
       - name: Verify preview version
         run: |
           PREVIEW_URL="${{ steps.deploy-preview.outputs.preview-url }}"
+          ALIAS_URL="${{ steps.deploy-preview.outputs.alias-preview-url }}"
+          VERSION_URL="${{ steps.deploy-preview.outputs.version-preview-url }}"
           VERSION_ID="${{ steps.deploy-preview.outputs.version-id }}"
           VERSION_TAG="${{ steps.deploy-preview.outputs.version-tag }}"
           
@@ -257,11 +280,16 @@ jobs:
           FIRST_API_KEY=$(echo "$ALLOWED_API_KEYS" | cut -d',' -f1)
           
           echo "🧪 Verifying preview version: $VERSION_TAG"
-          echo "🔗 Preview URL: $PREVIEW_URL"
           echo "📝 Version ID: $VERSION_ID"
+          if [ -n "$ALIAS_URL" ]; then
+            echo "🔗 Persistent Alias: $ALIAS_URL"
+            echo "🔗 Version-specific: $VERSION_URL"
+          else
+            echo "🔗 Preview URL: $PREVIEW_URL"
+          fi
           
           # Wait for version to propagate
-          sleep 20
+          sleep 25
           
           # Test health endpoint
           echo "Testing health endpoint..."
@@ -279,10 +307,16 @@ jobs:
           fi
           
           echo "🎉 Preview version verification passed!"
-          echo "🔗 Preview URL: $PREVIEW_URL"
-          echo "📦 Version: $VERSION_TAG ($VERSION_ID)"
-          echo ""
-          echo "ℹ️  This is a preview version of the same worker."
-          echo "ℹ️  Production remains unchanged until merged to main."
+          if [ -n "$ALIAS_URL" ]; then
+            echo "🔗 Stable Preview URL: $ALIAS_URL"
+            echo "🔗 Version-specific URL: $VERSION_URL"
+            echo "📦 Version: $VERSION_TAG ($VERSION_ID)"
+            echo ""
+            echo "ℹ️  The 'preview' alias always points to the latest preview branch."
+            echo "ℹ️  Production remains unchanged until merged to main."
+          else
+            echo "🔗 Preview URL: $PREVIEW_URL"
+            echo "📦 Version: $VERSION_TAG ($VERSION_ID)"
+          fi
         env:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}

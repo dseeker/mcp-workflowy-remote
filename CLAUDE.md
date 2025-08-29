@@ -71,8 +71,8 @@ git push origin main             # Automatic production deployment
 git push origin preview          # Creates preview version with unique URL
 # Create PR to main               # Creates preview version for testing
 
-# Manual version creation
-wrangler versions upload --tag preview
+# Manual version creation with persistent alias
+wrangler versions upload --tag preview --preview-alias preview
 
 # Dry run deployment (testing)
 npm run dry-run
@@ -80,8 +80,9 @@ npm run dry-run
 
 #### **Deployment URLs**
 - **Production**: `https://mcp-workflowy-remote.<subdomain>.workers.dev`
-- **Preview Versions**: `https://<version-id>-mcp-workflowy-remote.<subdomain>.workers.dev`
-- **Example Preview**: `https://06c20d83-mcp-workflowy-remote.daniel-bca.workers.dev`
+- **Persistent Preview**: `https://preview-mcp-workflowy-remote.<subdomain>.workers.dev` (always latest)
+- **Version-specific**: `https://<version-id>-mcp-workflowy-remote.<subdomain>.workers.dev`
+- **Pull Requests**: `https://pr<number>-mcp-workflowy-remote.<subdomain>.workers.dev`
 
 #### **Configuration**
 - **Single Worker**: All versions use same `wrangler.toml` configuration
