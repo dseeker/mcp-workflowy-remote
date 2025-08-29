@@ -1,3 +1,10 @@
+## [0.2.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.2.1...v0.2.2) (2025-08-29)
+
+
+### Bug Fixes
+
+* specify production environment in GitHub Action to eliminate wrangler warnings ([0acbbe2](https://github.com/dseeker/mcp-workflowy-remote/commit/0acbbe24da7fafb5bf7195593ff756f56bea491b))
+
 ## [0.2.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.2.0...v0.2.1) (2025-08-29)
 
 # [0.2.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.1.6...v0.2.0) (2025-08-29)
