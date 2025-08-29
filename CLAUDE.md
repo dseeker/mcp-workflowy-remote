@@ -74,8 +74,8 @@ The project supports two distinct runtime environments:
 ### Core Components
 
 **MCP Tools** (`src/tools/workflowy.ts`):
-- `list_nodes` - List root or child nodes
-- `search_nodes` - Search with advanced filtering (limit, maxDepth, includeFields)
+- `list_nodes` - List root or child nodes with filtering and preview (maxDepth, includeFields, preview)
+- `search_nodes` - Search with advanced filtering (limit, maxDepth, includeFields, preview)
 - `create_node` - Create new nodes
 - `update_node` - Modify existing nodes  
 - `toggle_complete` - Mark nodes complete/incomplete

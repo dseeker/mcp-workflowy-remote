@@ -41,30 +41,37 @@ class WorkflowyClient {
     /**
      * Get the root nodes of the Workflowy document
      */
-    async getRootItems(username?: string, password?: string) {
+    async getRootItems(username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
         const { wf, client } = await this.createAuthenticatedClient(username, password);
         const doc = await wf.getDocument();
         client.getTreeData()
-        return doc.root.toJson();
+        
+        // Apply filtering (always filter now, with defaults if not specified)
+        const rootData = doc.root.toJson();
+        const rootItems = rootData.items || [];
+        
+        return rootItems.map(item => this.createFilteredNode(item, maxDepth, includeFields, 0, previewLength));
     }
 
     /**
      * Get the child nodes of a specific node
      */
-    async getChildItems(parentId: string, username?: string, password?: string) {
+    async getChildItems(parentId: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
         const {wf, client } = await this.createAuthenticatedClient(username, password);
         let doc = await wf.getDocument();
         const parent = doc.root.items.find(item => item.id === parentId);
         if (!parent) {
             throw new Error(`Parent node with ID ${parentId} not found.`);
         }
-        return parent.items.map(item => item.toJson());
+        
+        // Apply filtering (always filter now, with defaults if not specified)
+        return parent.items.map(item => this.createFilteredNode(item.toJson(), maxDepth, includeFields, 0, previewLength));
     }
 
     /**
      * Create filtered node JSON with depth and field control
      */
-    private createFilteredNode(node: any, maxDepth: number = 0, includeFields?: string[], currentDepth: number = 0): any {
+    private createFilteredNode(node: any, maxDepth: number = 0, includeFields?: string[], currentDepth: number = 0, previewLength?: number): any {
         const defaultFields = ['id', 'name', 'note', 'isCompleted'];
         const fieldsToInclude = includeFields || defaultFields;
         
@@ -73,14 +80,21 @@ class WorkflowyClient {
         // Include requested fields
         fieldsToInclude.forEach(field => {
             if (field in node && field !== 'items') {
-                filtered[field] = node[field];
+                let value = node[field];
+                
+                // Apply content truncation for string fields if previewLength is specified
+                if (previewLength && typeof value === 'string' && (field === 'name' || field === 'note')) {
+                    value = value.length > previewLength ? value.substring(0, previewLength) + '...' : value;
+                }
+                
+                filtered[field] = value;
             }
         });
         
         // Handle children based on depth
         if (maxDepth > currentDepth && node.items && node.items.length > 0) {
             filtered.items = node.items.map((child: any) => 
-                this.createFilteredNode(child, maxDepth, includeFields, currentDepth + 1)
+                this.createFilteredNode(child, maxDepth, includeFields, currentDepth + 1, previewLength)
             );
         } else {
             filtered.items = [];
@@ -92,7 +106,7 @@ class WorkflowyClient {
     /**
      * Search for nodes in Workflowy with depth and field control
      */
-    async search(query: string, username?: string, password?: string, limit?: number, maxDepth?: number, includeFields?: string[]) {
+    async search(query: string, username?: string, password?: string, limit?: number, maxDepth?: number, includeFields?: string[], previewLength?: number) {
         const startTime = Date.now();
         const maxResults = limit || 10;
         
@@ -113,7 +127,7 @@ class WorkflowyClient {
             if (current!.name.toLowerCase().includes(query.toLowerCase())) {
                 // Create filtered node with depth and field control
                 const fullNode = current!.toJson();
-                const nodeJson = this.createFilteredNode(fullNode, depth, includeFields);
+                const nodeJson = this.createFilteredNode(fullNode, depth, includeFields, 0, previewLength);
                 results.push(nodeJson);
             }
             if (current!.items && results.length < maxResults) {

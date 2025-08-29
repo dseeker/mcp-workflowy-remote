@@ -6,13 +6,19 @@ export const workflowyTools: Record<string, any> = {
   list_nodes: {
     description: "List nodes in Workflowy. If a `parentId` is provided, it lists the child nodes of that parent. If omitted, it lists the root nodes.",
     inputSchema: {
-      parentId: z.string().optional().describe("ID of the parent node to list children from. If omitted, returns root nodes.")
+      parentId: z.string().optional().describe("ID of the parent node to list children from. If omitted, returns root nodes."),
+      maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Available: id, name, note, isCompleted (default: id, name)"),
+      preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
     },
-    handler: async ({ parentId, username, password }: { parentId?: string, username?: string, password?: string }) => {
+    handler: async ({ parentId, maxDepth, includeFields, preview, username, password }: { parentId?: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
       try {
+        const depth = maxDepth ?? 0;
+        const fields = includeFields ?? ['id', 'name']; // Default to basic meta and tree structure only
+        
         const items = !!parentId
-          ? await workflowyClient.getChildItems(parentId, username, password)
-          : await workflowyClient.getRootItems(username, password);
+          ? await workflowyClient.getChildItems(parentId, username, password, depth, fields, preview)
+          : await workflowyClient.getRootItems(username, password, depth, fields, preview);
         return {
           content: [{
             type: "text",
@@ -43,7 +49,8 @@ export const workflowyTools: Record<string, any> = {
       query: z.string().describe("Search query to find matching nodes"),
       limit: z.number().optional().describe("Maximum number of results to return (default: 10)"),
       maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Available: id, name, note, isCompleted (default: all)")
+      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Available: id, name, note, isCompleted (default: all)"),
+      preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
     },
     annotations: {
         title: "Search nodes in Workflowy",
@@ -52,12 +59,12 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: true,
         openWorldHint: false
     },
-    handler: async ({ query, limit, maxDepth, includeFields, username, password }: { query: string, limit?: number, maxDepth?: number, includeFields?: string[], username?: string, password?: string }, client: typeof workflowyClient) => {
+    handler: async ({ query, limit, maxDepth, includeFields, preview, username, password }: { query: string, limit?: number, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }, client: typeof workflowyClient) => {
       const startTime = Date.now();
-      const toolParams = { query, limit, maxDepth, includeFields, username: username ? '[PROVIDED]' : '[ENV_VAR]', password: password ? '[PROVIDED]' : '[ENV_VAR]' };
+      const toolParams = { query, limit, maxDepth, includeFields, preview, username: username ? '[PROVIDED]' : '[ENV_VAR]', password: password ? '[PROVIDED]' : '[ENV_VAR]' };
       
       try {
-        const items = await workflowyClient.search(query, username, password, limit, maxDepth, includeFields);
+        const items = await workflowyClient.search(query, username, password, limit, maxDepth, includeFields, preview);
         
         const responseSize = JSON.stringify(items, null, 2).length;
         const executionTime = Date.now() - startTime;

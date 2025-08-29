@@ -8,11 +8,11 @@ import { mockWorkflowyResponses } from "./mocks/workflowy-responses";
 const createTestTools = (mockClient: any) => {
   return {
     list_nodes: {
-      handler: async ({ parentId, username, password }: { parentId?: string, username?: string, password?: string }) => {
+      handler: async ({ parentId, maxDepth, includeFields, preview, username, password }: { parentId?: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
         try {
           const items = !!parentId
-            ? await mockClient.getChildItems(parentId, username, password)
-            : await mockClient.getRootItems(username, password);
+            ? await mockClient.getChildItems(parentId, username, password, maxDepth, includeFields, preview)
+            : await mockClient.getRootItems(username, password, maxDepth, includeFields, preview);
           return {
             content: [{
               type: "text",
@@ -31,10 +31,10 @@ const createTestTools = (mockClient: any) => {
     },
 
     search_nodes: {
-      handler: async ({ query, limit, maxDepth, includeFields, username, password }: 
-        { query: string, limit?: number, maxDepth?: number, includeFields?: string[], username?: string, password?: string }) => {
+      handler: async ({ query, limit, maxDepth, includeFields, preview, username, password }: 
+        { query: string, limit?: number, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
         try {
-          const items = await mockClient.search(query, username, password, limit, maxDepth, includeFields);
+          const items = await mockClient.search(query, username, password, limit, maxDepth, includeFields, preview);
           return {
             content: [{
               type: "text", 
@@ -129,20 +129,65 @@ const mockResponses = {
 
 // Mock client factory
 const createMockClient = (scenario: 'success' | 'error' | 'empty' = 'success') => {
+  
+  // Helper function to apply filtering and preview truncation
+  const applyFiltering = (node: any, maxDepth: number = 0, includeFields?: string[], preview?: number, currentDepth: number = 0): any => {
+    const defaultFields = ['id', 'name', 'note', 'isCompleted'];
+    const fieldsToInclude = includeFields || defaultFields;
+    
+    const filtered: any = {};
+    
+    // Include requested fields
+    fieldsToInclude.forEach(field => {
+      if (field in node && field !== 'items') {
+        let value = node[field];
+        
+        // Apply content truncation for string fields if preview is specified
+        if (preview && typeof value === 'string' && (field === 'name' || field === 'note')) {
+          value = value.length > preview ? value.substring(0, preview) + '...' : value;
+        }
+        
+        filtered[field] = value;
+      }
+    });
+    
+    // Handle children based on depth
+    if (maxDepth > currentDepth && node.items && node.items.length > 0) {
+      filtered.items = node.items.map((child: any) => 
+        applyFiltering(child, maxDepth, includeFields, preview, currentDepth + 1)
+      );
+    } else {
+      filtered.items = [];
+    }
+    
+    return filtered;
+  };
+  
   return {
-    getRootItems: async () => {
+    getRootItems: async (username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], preview?: number) => {
       if (scenario === 'error') throw new Error("Authentication failed: Invalid credentials");
       if (scenario === 'empty') return { id: "Root", name: "", note: "", isCompleted: false, items: [] };
-      return mockResponses.rootNodes;
+      
+      const rootData = mockResponses.rootNodes;
+      const rootItems = rootData.items || [];
+      
+      // Apply list_nodes defaults: ['id', 'name'] if no fields specified
+      const listNodeFields = includeFields ?? ['id', 'name'];
+      
+      return rootItems.map(item => applyFiltering(item, maxDepth, listNodeFields, preview));
     },
 
-    getChildItems: async (parentId: string) => {
+    getChildItems: async (parentId: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], preview?: number) => {
       if (scenario === 'error') throw new Error("Node not found: Invalid node ID");  
       if (scenario === 'empty') return [];
-      return mockResponses.childNodes;
+      
+      // Apply list_nodes defaults: ['id', 'name'] if no fields specified  
+      const listNodeFields = includeFields ?? ['id', 'name'];
+      
+      return mockResponses.childNodes.map(item => applyFiltering(item, maxDepth, listNodeFields, preview));
     },
 
-    search: async (query: string, username?: string, password?: string, limit?: number, maxDepth?: number, includeFields?: string[]) => {
+    search: async (query: string, username?: string, password?: string, limit?: number, maxDepth?: number, includeFields?: string[], preview?: number) => {
       if (scenario === 'error') throw new Error("Network error: Unable to connect to Workflowy API");
       if (scenario === 'empty') return [];
       
@@ -156,44 +201,8 @@ const createMockClient = (scenario: 'success' | 'error' | 'empty' = 'success') =
         results = results.slice(0, limit);
       }
       
-      // Apply field filtering and depth limiting
-      const filterNodeFields = (node: any, depth: number): any => {
-        const filteredNode: any = {};
-        
-        // Always include items array (required for structure)
-        filteredNode.items = [];
-        
-        // Apply field filtering if includeFields specified
-        if (includeFields && includeFields.length > 0) {
-          includeFields.forEach(field => {
-            if (node[field] !== undefined) {
-              filteredNode[field] = node[field];
-            }
-          });
-        } else {
-          // Include all fields if no filtering specified
-          Object.keys(node).forEach(key => {
-            if (key !== 'items') {
-              filteredNode[key] = node[key];
-            }
-          });
-        }
-        
-        // Handle nested items based on maxDepth
-        if (node.items && node.items.length > 0) {
-          if (maxDepth === undefined || depth < maxDepth) {
-            filteredNode.items = node.items.map((child: any) => 
-              filterNodeFields(child, depth + 1)
-            );
-          }
-          // If maxDepth is 0 or we've reached the limit, items remains empty array
-        }
-        
-        return filteredNode;
-      };
-      
-      // Apply filtering to all results starting at depth 0
-      return results.map(result => filterNodeFields(result, 0));
+      // Apply filtering to all results using the shared filtering function
+      return results.map(result => applyFiltering(result, maxDepth ?? 0, includeFields, preview));
     },
 
     createNode: async (parentId: string, name: string, description?: string) => {
@@ -236,11 +245,10 @@ describe('Workflowy MCP Tools', () => {
       expect(result.content[0].type).toBe('text');
       
       const parsedContent = JSON.parse(result.content[0].text);
-      expect(parsedContent.items).toBeDefined();
-      expect(parsedContent.items).toHaveLength(3); // Updated to match new mock data
-      expect(parsedContent.items[0].name).toBe('Project Management');
-      expect(parsedContent.items[1].name).toBe('Personal Goals');
-      expect(parsedContent.items[2].name).toBe('Research Projects');
+      expect(parsedContent).toHaveLength(3); // Updated to match new mock data - now returns array directly
+      expect(parsedContent[0].name).toBe('Project Management');
+      expect(parsedContent[1].name).toBe('Personal Goals');
+      expect(parsedContent[2].name).toBe('Research Projects');
     });
 
     it('should list child nodes when parentId provided', async () => {
@@ -266,6 +274,156 @@ describe('Workflowy MCP Tools', () => {
 
       expect(result.content[0].text).toContain('Error listing nodes');
       expect(result.content[0].text).toContain('Authentication failed');
+    });
+
+    it('should use default fields (id, name) when no includeFields specified', async () => {
+      const result = await tools.list_nodes.handler({
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      // Should have default fields for list_nodes
+      expect(node.id).toBeDefined();
+      expect(node.name).toBeDefined();
+      expect(node.items).toBeDefined(); // Always included
+      
+      // Should NOT have other fields by default
+      expect(node.note).toBeUndefined();
+      expect(node.isCompleted).toBeUndefined();
+    });
+
+    it('should respect includeFields parameter', async () => {
+      const result = await tools.list_nodes.handler({
+        includeFields: ['id', 'name', 'note', 'isCompleted'],
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      // Should have all requested fields
+      expect(node.id).toBeDefined();
+      expect(node.name).toBeDefined();
+      expect(node.note).toBeDefined();
+      expect(node.isCompleted).toBeDefined();
+      expect(node.items).toBeDefined(); // Always included
+    });
+
+    it('should respect maxDepth=0 (no children)', async () => {
+      const result = await tools.list_nodes.handler({
+        maxDepth: 0,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      expect(node.items).toHaveLength(0); // Should have no children
+    });
+
+    it('should respect maxDepth=1 (include first level children)', async () => {
+      const result = await tools.list_nodes.handler({
+        maxDepth: 1,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      expect(node.items.length).toBeGreaterThan(0); // Should have children
+      // Children should not have their own children (maxDepth=1)
+      if (node.items[0].items) {
+        expect(node.items[0].items).toHaveLength(0);
+      }
+    });
+
+    it('should respect maxDepth=2 (include grandchildren)', async () => {
+      const result = await tools.list_nodes.handler({
+        maxDepth: 2,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      expect(node.items.length).toBeGreaterThan(0); // Should have children
+      // Children should have their own children (grandchildren)
+      if (node.items[0].items) {
+        expect(node.items[0].items.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should truncate content with preview parameter', async () => {
+      const result = await tools.list_nodes.handler({
+        includeFields: ['id', 'name', 'note'],
+        preview: 10, // Truncate to 10 characters
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      // Names longer than 10 chars should be truncated with '...'
+      if (node.name && node.name.length > 10) {
+        expect(node.name).toEndWith('...');
+        expect(node.name.length).toBeLessThanOrEqual(13); // 10 chars + '...'
+      }
+      
+      // Notes longer than 10 chars should be truncated with '...'
+      if (node.note && node.note.length > 10) {
+        expect(node.note).toEndWith('...');
+        expect(node.note.length).toBeLessThanOrEqual(13); // 10 chars + '...'
+      }
+    });
+
+    it('should not truncate content shorter than preview limit', async () => {
+      const result = await tools.list_nodes.handler({
+        includeFields: ['id', 'name', 'note'],
+        preview: 100, // Large preview limit
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      // Content shorter than limit should not be truncated
+      if (node.name) {
+        expect(node.name).not.toEndWith('...');
+      }
+      if (node.note) {
+        expect(node.note).not.toEndWith('...');
+      }
+    });
+
+    it('should combine all parameters correctly', async () => {
+      const result = await tools.list_nodes.handler({
+        maxDepth: 1,
+        includeFields: ['id', 'name'],
+        preview: 15,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      // Should respect field filtering
+      expect(node.id).toBeDefined();
+      expect(node.name).toBeDefined();
+      expect(node.note).toBeUndefined();
+      expect(node.isCompleted).toBeUndefined();
+      
+      // Should respect maxDepth
+      expect(node.items.length).toBeGreaterThan(0);
+      if (node.items[0].items) {
+        expect(node.items[0].items).toHaveLength(0);
+      }
+      
+      // Should respect preview truncation
+      if (node.name && node.name.length > 15) {
+        expect(node.name).toEndWith('...');
+      }
     });
   });
 
@@ -451,6 +609,120 @@ describe('Workflowy MCP Tools', () => {
       // Should respect maxDepth (children included but no grandchildren)
       if (node.items && node.items.length > 0 && node.items[0].items) {
         expect(node.items[0].items).toHaveLength(0);
+      }
+    });
+
+    it('should truncate content with preview parameter', async () => {
+      const result = await tools.search_nodes.handler({
+        query: 'TypeScript',
+        preview: 12, // Truncate to 12 characters
+        limit: 1,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      // Names longer than 12 chars should be truncated with '...'
+      if (node.name && node.name.length > 12) {
+        expect(node.name).toEndWith('...');
+        expect(node.name.length).toBeLessThanOrEqual(15); // 12 chars + '...'
+      }
+      
+      // Notes longer than 12 chars should be truncated with '...'
+      if (node.note && node.note.length > 12) {
+        expect(node.note).toEndWith('...');
+        expect(node.note.length).toBeLessThanOrEqual(15); // 12 chars + '...'
+      }
+    });
+
+    it('should not truncate content shorter than preview limit', async () => {
+      const result = await tools.search_nodes.handler({
+        query: 'TypeScript',
+        preview: 100, // Large preview limit
+        limit: 1,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      // Content shorter than limit should not be truncated
+      if (node.name) {
+        expect(node.name).not.toEndWith('...');
+      }
+      if (node.note) {
+        expect(node.note).not.toEndWith('...');
+      }
+    });
+
+    it('should apply preview truncation recursively to children', async () => {
+      const result = await tools.search_nodes.handler({
+        query: 'TypeScript',
+        maxDepth: 2,
+        preview: 10, // Short preview to ensure truncation
+        limit: 1,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      const node = parsedContent[0];
+      
+      // Check children for preview truncation
+      if (node.items && node.items.length > 0) {
+        const child = node.items[0];
+        if (child.name && child.name.length > 10) {
+          expect(child.name).toEndWith('...');
+        }
+        if (child.note && child.note.length > 10) {
+          expect(child.note).toEndWith('...');
+        }
+        
+        // Check grandchildren for preview truncation
+        if (child.items && child.items.length > 0) {
+          const grandchild = child.items[0];
+          if (grandchild.name && grandchild.name.length > 10) {
+            expect(grandchild.name).toEndWith('...');
+          }
+          if (grandchild.note && grandchild.note.length > 10) {
+            expect(grandchild.note).toEndWith('...');
+          }
+        }
+      }
+    });
+
+    it('should combine all parameters including preview', async () => {
+      const result = await tools.search_nodes.handler({
+        query: 'TypeScript',
+        limit: 1,
+        maxDepth: 1,
+        includeFields: ['id', 'name'],
+        preview: 8,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      
+      // Should respect limit
+      expect(parsedContent).toHaveLength(1);
+      
+      const node = parsedContent[0];
+      
+      // Should respect field filtering
+      expect(node.id).toBeDefined();
+      expect(node.name).toBeDefined();
+      expect(node.note).toBeUndefined();
+      expect(node.isCompleted).toBeUndefined();
+      
+      // Should respect maxDepth
+      if (node.items && node.items.length > 0 && node.items[0].items) {
+        expect(node.items[0].items).toHaveLength(0);
+      }
+      
+      // Should respect preview truncation
+      if (node.name && node.name.length > 8) {
+        expect(node.name).toEndWith('...');
+        expect(node.name.length).toBeLessThanOrEqual(11); // 8 chars + '...'
       }
     });
   });

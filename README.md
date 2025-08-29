@@ -153,13 +153,40 @@ The server automatically adapts its behavior based on the deployment environment
 
 This MCP server provides the following tools to interact with your Workflowy:
 
-1. **list_nodes** - Get a list of nodes from your Workflowy (root nodes or children of a specified node)
-2. **search_nodes** - Search for nodes by query text with advanced filtering options
+1. **list_nodes** - Get a list of nodes from your Workflowy (root nodes or children of a specified node) with filtering and preview options
+2. **search_nodes** - Search for nodes by query text with advanced filtering and preview options
 3. **create_node** - Create a new node in your Workflowy
 4. **update_node** - Modify an existing node's text or description
 5. **toggle_complete** - Mark a node as complete or incomplete
 
-### Advanced Search Features
+### Enhanced List & Search Features
+
+Both **list_nodes** and **search_nodes** tools include powerful parameters for optimized performance and precise results.
+
+#### **list_nodes - Smart Node Listing**
+
+The `list_nodes` tool now provides efficient node listing with sensible defaults:
+
+**Default Behavior (Optimized for Performance):**
+- Returns only `id` and `name` fields by default (not `note` and `isCompleted`)
+- No children included by default (`maxDepth: 0`)
+- Much faster and lighter than previous versions
+
+**Example Usage:**
+```javascript
+// Basic usage - lightweight response
+list_nodes()  // Returns root nodes with id, name only
+
+// Get specific node's children with more detail
+list_nodes({ 
+  parentId: "node-123",
+  includeFields: ["id", "name", "note", "isCompleted"],
+  maxDepth: 2,
+  preview: 100
+})
+```
+
+#### **Advanced Search Features**
 
 The **search_nodes** tool includes powerful parameters for optimized performance and precise results:
 
@@ -233,22 +260,83 @@ search_nodes({
 // Note: 'note' and 'isCompleted' fields excluded from all levels
 ```
 
+#### **Content Preview (`preview`)**
+Control content length by truncating text fields to a specified number of characters:
+- `preview: 50` - Truncate `name` and `note` fields to 50 characters (adds "..." if truncated)
+- `preview: 100` - Truncate to 100 characters
+- `preview: undefined` (default) - No truncation, return full content
+
+**Example Usage:**
+```javascript
+// Truncate long content for quick previews
+search_nodes({ 
+  query: "project", 
+  preview: 30  // Long names/notes truncated to 30 chars + "..."
+})
+
+// Result:
+[
+  {
+    "id": "node-1",
+    "name": "Very long project name that...", // Truncated
+    "note": "Detailed description that...",   // Truncated
+    "isCompleted": false,
+    "items": []
+  }
+]
+```
+
+**Benefits:**
+- **Reduced Token Usage**: Shorter responses use fewer tokens
+- **Quick Overviews**: Get essence of content without overwhelming detail
+- **Consistent Layout**: Predictable response sizes for UI display
+
 #### **Combined Parameters**
 All parameters can be used together for maximum control:
 
 ```javascript
 search_nodes({
   query: "TypeScript",
-  limit: 3,                    // Max 3 results
-  maxDepth: 1,                 // Include children but not grandchildren  
-  includeFields: ["id", "name"] // Only essential fields
+  limit: 3,                     // Max 3 results
+  maxDepth: 1,                  // Include children but not grandchildren  
+  includeFields: ["id", "name"], // Only essential fields
+  preview: 50                   // Truncate content to 50 characters
 })
 ```
 
 #### **Performance Benefits**
+Both `list_nodes` and `search_nodes` offer these optimization features:
 - **Token Limit Protection**: Field filtering and depth control prevent large responses that could exceed Claude Code's 25k token limit
 - **Faster Processing**: Smaller responses load faster and use less bandwidth
+- **Content Preview**: Truncate long content to reduce response size while maintaining readability
 - **Precise Control**: Get exactly the data structure you need for your use case
+- **Smart Defaults**: `list_nodes` uses minimal fields by default for maximum efficiency
+
+#### **Example Usage with Preview**
+```javascript
+// Quick overview with truncated content
+list_nodes({ 
+  maxDepth: 1, 
+  preview: 80, 
+  includeFields: ["id", "name", "note"] 
+})
+
+// Result: Immediate children with content truncated to 80 chars
+[
+  {
+    "id": "node-1",
+    "name": "Long project name gets truncated at 80 characters and shows ellipsis...",
+    "note": "Detailed description also gets truncated to 80 characters for preview...",
+    "items": [
+      {
+        "id": "child-1", 
+        "name": "Child node also truncated...",
+        "items": []
+      }
+    ]
+  }
+]
+```
 
 ## Quick Start Examples
 
@@ -690,11 +778,18 @@ claude mcp add --transport http workflowy-remote https://your-worker.workers.dev
 
 ### Available Tools
 
-1. **list_nodes** - List Workflowy nodes
+1. **list_nodes** - List Workflowy nodes with filtering and preview options
    - `parentId` (optional): Parent node ID
+   - `maxDepth` (optional): Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)
+   - `includeFields` (optional): Fields to include in response. Available: id, name, note, isCompleted (default: id, name)
+   - `preview` (optional): Truncate content fields (name, note) to specified number of characters
    
-2. **search_nodes** - Search nodes by text
+2. **search_nodes** - Search nodes by text with advanced filtering
    - `query` (required): Search query
+   - `limit` (optional): Maximum number of results to return
+   - `maxDepth` (optional): Maximum depth of children to include (default: 0)
+   - `includeFields` (optional): Fields to include in response. Available: id, name, note, isCompleted (default: all)
+   - `preview` (optional): Truncate content fields (name, note) to specified number of characters
    
 3. **create_node** - Create new node
    - `parentId` (required): Parent node ID

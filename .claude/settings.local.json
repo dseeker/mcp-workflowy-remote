@@ -31,7 +31,8 @@
       "Bash(git push:*)",
       "Bash(npm install:*)",
       "Bash(npx wrangler:*)",
-      "WebFetch(domain:developers.cloudflare.com)"
+      "WebFetch(domain:developers.cloudflare.com)",
+      "mcp__workflowy__list_nodes"
     ],
     "deny": [],
     "ask": []
