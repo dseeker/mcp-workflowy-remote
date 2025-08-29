@@ -306,10 +306,6 @@ Add these secrets to your GitHub repository:
 - `CLOUDFLARE_ACCOUNT_ID` - Your Cloudflare account ID  
 - `ALLOWED_API_KEYS` - Comma-separated API keys (e.g., "key1,key2,key3")
 
-**Optional Secrets (convenience):**
-- `WORKFLOWY_USERNAME` - Your Workflowy username (fallback)
-- `WORKFLOWY_PASSWORD` - Your Workflowy password (fallback)
-
 #### Step 3: Deploy with Automatic Versioning
 Push to main/master branch. The GitHub Action automatically:
 - **Semantic Versioning**: Analyzes commit messages and creates new versions

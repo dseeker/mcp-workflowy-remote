@@ -26,7 +26,11 @@
       "mcp__workflowy__search_nodes",
       "Bash(npm test)",
       "Bash(git diff:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "Bash(npx wrangler:*)"
     ],
     "deny": [],
     "ask": []
