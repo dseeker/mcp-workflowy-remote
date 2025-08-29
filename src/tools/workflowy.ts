@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { workflowyClient } from "../workflowy/client.js";
+import log from "../utils/logger.js";
 
 export const workflowyTools: Record<string, any> = {
   list_nodes: {
@@ -39,7 +40,10 @@ export const workflowyTools: Record<string, any> = {
   search_nodes: {
     description: "Search nodes in Workflowy",
     inputSchema: {
-      query: z.string().describe("Search query to find matching nodes")
+      query: z.string().describe("Search query to find matching nodes"),
+      limit: z.number().optional().describe("Maximum number of results to return (default: 10)"),
+      maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Available: id, name, note, isCompleted (default: all)")
     },
     annotations: {
         title: "Search nodes in Workflowy",
@@ -48,22 +52,36 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: true,
         openWorldHint: false
     },
-    handler: async ({ query, username, password }: { query: string, username?: string, password?: string }, client: typeof workflowyClient) => {
+    handler: async ({ query, limit, maxDepth, includeFields, username, password }: { query: string, limit?: number, maxDepth?: number, includeFields?: string[], username?: string, password?: string }, client: typeof workflowyClient) => {
+      const startTime = Date.now();
+      const toolParams = { query, limit, maxDepth, includeFields, username: username ? '[PROVIDED]' : '[ENV_VAR]', password: password ? '[PROVIDED]' : '[ENV_VAR]' };
+      
       try {
-        const items = await workflowyClient.search(query, username, password);
-        return {
+        const items = await workflowyClient.search(query, username, password, limit, maxDepth, includeFields);
+        
+        const responseSize = JSON.stringify(items, null, 2).length;
+        const executionTime = Date.now() - startTime;
+
+        const response = {
           content: [{
             type: "text",
             text: JSON.stringify(items, null, 2)
           }]
         };
+        
+        return response;
+        
       } catch (error: any) {
-        return {
+        const executionTime = Date.now() - startTime;
+        
+        const errorResponse = {
           content: [{
             type: "text",
             text: `Error searching nodes: ${error.message}`
           }]
         };
+        
+        return errorResponse;
       }
     }
   },

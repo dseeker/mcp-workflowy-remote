@@ -1,4 +1,5 @@
 import { WorkFlowy, Client } from 'workflowy';
+import log from '../utils/logger.js';
 
 class WorkflowyClient {
     /**
@@ -6,22 +7,33 @@ class WorkflowyClient {
      * @private Helper method to create and authenticate a Workflowy client
      */
     private async createAuthenticatedClient(username?: string, password?: string): Promise<{wf: WorkFlowy, client: Client}> {
+        const startTime = Date.now();
+        
         // Use parameters if provided, otherwise fall back to config
         const loginUsername = username || process.env.WORKFLOWY_USERNAME;
         const loginPassword = password || process.env.WORKFLOWY_PASSWORD;
 
+        log.debug('Creating authenticated client', { username: loginUsername ? '[PROVIDED]' : '[NOT_PROVIDED]' });
+
         if (!loginUsername || !loginPassword) {
+            log.error('Workflowy credentials not provided');
             throw new Error('Workflowy credentials not provided. Please set WORKFLOWY_USERNAME and WORKFLOWY_PASSWORD environment variables.');
         }
 
         // Create a new Workflowy client instance
         const wf = new WorkFlowy(loginUsername, loginPassword);
         const client = wf.getClient();
+        
+        log.workflowyRequest('authentication', { username: loginUsername });
         const ok = await client.login();
+        const authTime = Date.now() - startTime;
 
         if (!ok.success) {
+            log.error('Workflowy authentication failed', null, { username: loginUsername, duration: authTime });
             throw new Error('Workflowy authentication failed. Please provide valid credentials.');
         }
+
+        log.performance('authentication', authTime, { success: true });
 
         return { wf, client };
     }
@@ -50,24 +62,73 @@ class WorkflowyClient {
     }
 
     /**
-     * Search for nodes in Workflowy
+     * Create filtered node JSON with depth and field control
      */
-    async search(query: string, username?: string, password?: string) {
+    private createFilteredNode(node: any, maxDepth: number = 0, includeFields?: string[], currentDepth: number = 0): any {
+        const defaultFields = ['id', 'name', 'note', 'isCompleted'];
+        const fieldsToInclude = includeFields || defaultFields;
+        
+        const filtered: any = {};
+        
+        // Include requested fields
+        fieldsToInclude.forEach(field => {
+            if (field in node && field !== 'items') {
+                filtered[field] = node[field];
+            }
+        });
+        
+        // Handle children based on depth
+        if (maxDepth > currentDepth && node.items && node.items.length > 0) {
+            filtered.items = node.items.map((child: any) => 
+                this.createFilteredNode(child, maxDepth, includeFields, currentDepth + 1)
+            );
+        } else {
+            filtered.items = [];
+        }
+        
+        return filtered;
+    }
+
+    /**
+     * Search for nodes in Workflowy with depth and field control
+     */
+    async search(query: string, username?: string, password?: string, limit?: number, maxDepth?: number, includeFields?: string[]) {
+        const startTime = Date.now();
+        const maxResults = limit || 10;
+        
+        const depth = maxDepth ?? 0;
+        
         const { wf } = await this.createAuthenticatedClient(username, password);
         const t = await wf.getDocument();
+        
         const items = t.root.items;
         let results = [];
         let stack = [...t.root.items];
-        while (stack.length > 0) {
+        let nodesExamined = 0;
+        
+        while (stack.length > 0 && results.length < maxResults) {
             const current = stack.pop();
+            nodesExamined++;
+            
             if (current!.name.toLowerCase().includes(query.toLowerCase())) {
-                results.push(current!.toJson());
+                // Create filtered node with depth and field control
+                const fullNode = current!.toJson();
+                const nodeJson = this.createFilteredNode(fullNode, depth, includeFields);
+                results.push(nodeJson);
             }
-            if (current!.items) {
+            if (current!.items && results.length < maxResults) {
                 stack.push(...current!.items);
             }
         }
-        // need to traverse the tree to find all items
+
+        const searchTime = Date.now() - startTime;
+        const resultSize = JSON.stringify(results).length;
+        
+        // Check for token limit issues
+        const estimatedTokens = Math.ceil(resultSize / 4); // Rough estimate: 4 chars per token
+        if (estimatedTokens > 20000) {
+            console.warn(`Token limit warning: search estimated ${estimatedTokens} tokens`);
+        }
 
         return results
     }
