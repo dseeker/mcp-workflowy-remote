@@ -58,30 +58,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy:
+  deploy-production:
     needs: [version]
-    if: always() && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    name: Deploy MCP Workflowy Server
-    
-    strategy:
-      matrix:
-        include:
-          - environment: production
-            condition: github.ref == 'refs/heads/main'
-            wrangler_env: ""
-            api_key_secret: ALLOWED_API_KEYS
-            github_env: production
-            sleep_time: 30
-          - environment: preview  
-            condition: github.ref == 'refs/heads/preview' || github.event_name == 'pull_request'
-            wrangler_env: "--env preview"
-            api_key_secret: ALLOWED_API_KEYS_PREVIEW
-            github_env: preview
-            sleep_time: 15
-    
-    environment: ${{ matrix.github_env }}
-    if: ${{ matrix.condition }}
+    name: Deploy to Production
+    environment: production
 
     steps:
       - name: Checkout
@@ -105,43 +87,29 @@ jobs:
       - name: Build Worker
         run: npm run build:worker
 
-      - name: Upload secrets and deploy
+      - name: Upload secrets and deploy to Production
         id: deploy
         run: |
-          # Upload secrets to environment
-          echo "🔑 Uploading secrets to ${{ matrix.environment }}..."
-          if [ "${{ matrix.wrangler_env }}" = "" ]; then
-            echo "ALLOWED_API_KEYS = $API_KEYS" | npx wrangler secret bulk
-          else
-            echo "ALLOWED_API_KEYS = $API_KEYS" | npx wrangler secret bulk ${{ matrix.wrangler_env }}
-          fi
+          # Upload secrets to production environment (default)
+          echo "🔑 Uploading secrets to production..."
+          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk
           
-          # Deploy
+          # Deploy to production
           VERSION="${{ needs.version.outputs.version || 'dev' }}"
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "🚀 Deploying PR #${{ github.event.number }} to ${{ matrix.environment }}"
-          else
-            echo "🚀 Deploying v$VERSION to ${{ matrix.environment }}"
-          fi
-          
-          if [ "${{ matrix.wrangler_env }}" = "" ]; then
-            DEPLOY_OUTPUT=$(npx wrangler deploy 2>&1)
-          else
-            DEPLOY_OUTPUT=$(npx wrangler deploy ${{ matrix.wrangler_env }} 2>&1)
-          fi
-          
+          echo "🚀 Deploying v$VERSION to production..."
+          DEPLOY_OUTPUT=$(npx wrangler deploy 2>&1)
           echo "$DEPLOY_OUTPUT"
           
           # Extract worker URL
           WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[a-zA-Z0-9.-]*\.workers\.dev' | head -1)
           echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
-          echo "✅ Deployed to ${{ matrix.environment }}: $WORKER_URL"
+          echo "✅ Deployed to production: $WORKER_URL"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          API_KEYS: ${{ secrets[matrix.api_key_secret] }}
+          ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
-      - name: Verify deployment
+      - name: Verify production deployment
         run: |
           WORKER_URL="${{ steps.deploy.outputs.worker-url }}"
           
@@ -151,13 +119,13 @@ jobs:
           fi
           
           # Extract first API key for testing
-          FIRST_API_KEY=$(echo "$API_KEYS" | cut -d',' -f1)
+          FIRST_API_KEY=$(echo "$ALLOWED_API_KEYS" | cut -d',' -f1)
           
-          echo "🧪 Verifying ${{ matrix.environment }} deployment at: $WORKER_URL"
+          echo "🧪 Verifying production deployment at: $WORKER_URL"
           echo "🔑 Using API key for testing: ${FIRST_API_KEY:0:10}..."
           
           # Wait for deployment to propagate
-          sleep ${{ matrix.sleep_time }}
+          sleep 30
           
           # Test health endpoint
           echo "Testing health endpoint..."
@@ -169,47 +137,34 @@ jobs:
           ROOT_RESPONSE=$(curl -s "$WORKER_URL/")
           ENVIRONMENT=$(echo "$ROOT_RESPONSE" | jq -r '.environment // "unknown"')
           
-          if [ "$ENVIRONMENT" = "${{ matrix.environment }}" ]; then
+          if [ "$ENVIRONMENT" = "production" ]; then
             echo "✅ Environment confirmed: $ENVIRONMENT"
           else
-            echo "⚠️  Environment mismatch - expected: ${{ matrix.environment }}, got: $ENVIRONMENT"
+            echo "⚠️  Environment mismatch - expected: production, got: $ENVIRONMENT"
           fi
           
-          # Test authentication (production gets full test suite, preview gets basic test)
-          if [ "${{ matrix.environment }}" = "production" ]; then
-            # Full test suite for production
-            echo "Testing tools endpoint..."
-            TOOLS_COUNT=$(curl -f "$WORKER_URL/tools" -H "Authorization: Bearer $FIRST_API_KEY" 2>/dev/null | jq '.tools | length') || (echo "❌ Tools endpoint failed" && exit 1)
-            if [ "$TOOLS_COUNT" -gt 0 ]; then
-              echo "✅ Tools endpoint passed - $TOOLS_COUNT tools available"
-            else
-              echo "❌ Tools endpoint failed - no tools found"
-              exit 1
-            fi
-            
-            # Test MCP endpoint
-            echo "Testing MCP endpoint..."
-            AUTH_SUCCESS=$(curl -s -X POST "$WORKER_URL/mcp" \
-              -H "Authorization: Bearer $FIRST_API_KEY" \
-              -H "Content-Type: application/json" \
-              -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}')
-            
-            if echo "$AUTH_SUCCESS" | grep -q -E "(result|tools|jsonrpc)"; then
-              echo "✅ MCP endpoint working"
-            else
-              echo "❌ MCP endpoint failed"
-              exit 1
-            fi
+          # Full test suite for production
+          echo "Testing tools endpoint..."
+          TOOLS_COUNT=$(curl -f "$WORKER_URL/tools" -H "Authorization: Bearer $FIRST_API_KEY" 2>/dev/null | jq '.tools | length') || (echo "❌ Tools endpoint failed" && exit 1)
+          if [ "$TOOLS_COUNT" -gt 0 ]; then
+            echo "✅ Tools endpoint passed - $TOOLS_COUNT tools available"
           else
-            # Basic test for preview
-            echo "Testing basic authentication..."
-            AUTH_TEST=$(curl -s "$WORKER_URL/tools" -H "Authorization: Bearer $FIRST_API_KEY")
-            if echo "$AUTH_TEST" | grep -q "tools"; then
-              echo "✅ Preview authentication working"
-            else
-              echo "❌ Preview authentication failed"
-              exit 1
-            fi
+            echo "❌ Tools endpoint failed - no tools found"
+            exit 1
+          fi
+          
+          # Test MCP endpoint
+          echo "Testing MCP endpoint..."
+          AUTH_SUCCESS=$(curl -s -X POST "$WORKER_URL/mcp" \
+            -H "Authorization: Bearer $FIRST_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}')
+          
+          if echo "$AUTH_SUCCESS" | grep -q -E "(result|tools|jsonrpc)"; then
+            echo "✅ MCP endpoint working"
+          else
+            echo "❌ MCP endpoint failed"
+            exit 1
           fi
           
           VERSION="${{ needs.version.outputs.version || 'dev' }}"
@@ -217,13 +172,116 @@ jobs:
           
           echo "🎉 All deployment verification tests passed!"
           
-          if [ "${{ matrix.environment }}" = "production" ] && [ "$RELEASED" = "true" ]; then
+          if [ "$RELEASED" = "true" ]; then
             echo "📦 New version v$VERSION released and deployed!"
             echo "📝 Release notes: ${{ needs.version.outputs.release-notes }}"
           else
-            echo "🔄 Version v$VERSION deployed to ${{ matrix.environment }}"
+            echo "🔄 Version v$VERSION deployed to production"
           fi
           
-          echo "🚀 ${{ matrix.environment }} server ready at: $WORKER_URL"
+          echo "🚀 Production server ready at: $WORKER_URL"
         env:
-          API_KEYS: ${{ secrets[matrix.api_key_secret] }}
+          ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
+
+  deploy-preview:
+    if: github.ref == 'refs/heads/preview' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: Deploy to Preview
+    environment: preview
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+        continue-on-error: true
+
+      - name: Build Worker
+        run: npm run build:worker
+
+      - name: Upload secrets and deploy to Preview
+        id: deploy-preview
+        run: |
+          # Upload secrets to preview environment
+          echo "🔑 Uploading secrets to preview..."
+          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS_PREVIEW" | npx wrangler secret bulk --env preview
+          
+          # Deploy to preview
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "🚀 Deploying PR #${{ github.event.number }} to preview"
+          else
+            echo "🚀 Deploying preview branch to preview environment"
+          fi
+          
+          DEPLOY_OUTPUT=$(npx wrangler deploy --env preview 2>&1)
+          echo "$DEPLOY_OUTPUT"
+          
+          # Extract worker URL
+          WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[a-zA-Z0-9.-]*\.workers\.dev' | head -1)
+          echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
+          echo "✅ Deployed to preview: $WORKER_URL"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ALLOWED_API_KEYS_PREVIEW: ${{ secrets.ALLOWED_API_KEYS_PREVIEW }}
+
+      - name: Verify preview deployment
+        run: |
+          WORKER_URL="${{ steps.deploy-preview.outputs.worker-url }}"
+          
+          if [ -z "$WORKER_URL" ]; then
+            echo "❌ Failed to capture worker URL"
+            exit 1
+          fi
+          
+          # Extract first API key for testing
+          FIRST_API_KEY=$(echo "$ALLOWED_API_KEYS_PREVIEW" | cut -d',' -f1)
+          
+          echo "🧪 Verifying preview deployment at: $WORKER_URL"
+          echo "🔑 Using preview API key for testing"
+          
+          # Wait for deployment to propagate
+          sleep 15
+          
+          # Test health endpoint
+          echo "Testing health endpoint..."
+          HEALTH_RESPONSE=$(curl -f "$WORKER_URL/health" 2>/dev/null) || (echo "❌ Health check failed" && exit 1)
+          echo "✅ Health check passed: $HEALTH_RESPONSE"
+          
+          # Test root endpoint and verify environment
+          echo "Testing root endpoint..."
+          ROOT_RESPONSE=$(curl -s "$WORKER_URL/")
+          ENVIRONMENT=$(echo "$ROOT_RESPONSE" | jq -r '.environment // "unknown"')
+          
+          if [ "$ENVIRONMENT" = "preview" ]; then
+            echo "✅ Environment confirmed: $ENVIRONMENT"
+          else
+            echo "⚠️  Environment mismatch - expected: preview, got: $ENVIRONMENT"
+          fi
+          
+          # Basic test for preview
+          echo "Testing basic authentication..."
+          AUTH_TEST=$(curl -s "$WORKER_URL/tools" -H "Authorization: Bearer $FIRST_API_KEY")
+          if echo "$AUTH_TEST" | grep -q "tools"; then
+            echo "✅ Preview authentication working"
+          else
+            echo "❌ Preview authentication failed"
+            exit 1
+          fi
+          
+          echo "🎉 Preview deployment verification passed!"
+          echo "🔗 Preview URL: $WORKER_URL"
+        env:
+          ALLOWED_API_KEYS_PREVIEW: ${{ secrets.ALLOWED_API_KEYS_PREVIEW }}
