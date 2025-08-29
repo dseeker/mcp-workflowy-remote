@@ -1,3 +1,5 @@
+## [0.2.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.2.0...v0.2.1) (2025-08-29)
+
 # [0.2.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.1.6...v0.2.0) (2025-08-29)
 
 
