@@ -38,9 +38,10 @@
 7. ✅ `move_node` - Move nodes between parents with priority control (**NEW - Phase 0 Critical**)
 8. ✅ `get_node_by_id` - Get single node details by ID with full filtering (**NEW - Phase 0 Critical**)
 
-**Deployment Options** (2 versions with 100% parity):
+**Deployment Options** (with preview versioning):
 - ✅ **Local npm version**: FastMCP with stdio transport for Claude Code integration
 - ✅ **Remote Cloudflare Workers version**: MCP HTTP transport with authentication
+- ✅ **Preview Versions**: Same worker with versioned preview URLs for testing
 
 **Native Workflowy Operations Discovered** (9 core types):
 - ✅ `create` (implemented as create_node)

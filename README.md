@@ -143,40 +143,39 @@ curl https://your-worker-url.workers.dev/tools \
 
 ### Deployment Environments
 
-The server supports two deployment environments with automatic branch-based deployment:
+The server supports production deployment with preview versions for testing:
 
-#### **Production Environment**
+#### **Production Deployment**
 - **URL**: `https://mcp-workflowy-remote.<subdomain>.workers.dev`
 - **Trigger**: Push to `main` branch or manual deployment
 - **Configuration**: Maximum security, optimized performance, production rate limits
 - **API Keys**: Use production `ALLOWED_API_KEYS`
 
-#### **Preview Environment**  
-- **URL**: `https://mcp-workflowy-remote-preview.<subdomain>.workers.dev`
+#### **Preview Versions**  
+- **URL**: `https://<version-id>-mcp-workflowy-remote.<subdomain>.workers.dev`
 - **Trigger**: Push to `preview` branch or pull requests to `main`
-- **Configuration**: Debug enabled, relaxed CORS, higher rate limits for testing
-- **API Keys**: Use preview `ALLOWED_API_KEYS_PREVIEW`
+- **Configuration**: Same worker, different version for testing new features
+- **API Keys**: Uses same production `ALLOWED_API_KEYS` (same worker, just different version)
 
-#### **Branch-based Deployment**
+#### **Version-based Workflow**
 ```bash
-# Automatic deployments
-git push origin main      # → Production deployment
-git push origin preview   # → Preview deployment
+# Production deployment
+git push origin main      # → Updates production worker
 
-# Pull request previews
-# Create PR to main        # → Automatic preview deployment
+# Preview versions (doesn't affect production)
+git push origin preview   # → Creates new preview version
+# Create PR to main        # → Creates preview version for PR
 
 # Manual deployments
 npm run deploy            # → Production
-npm run deploy:preview    # → Preview
+wrangler versions upload --tag preview  # → Create preview version
 ```
 
-### Environment-Specific Behavior
+### Preview vs Production
 
-The server automatically adapts its behavior based on the detected environment:
-
-- **Preview**: Debug enabled, permissive CORS, higher rate limits (100/min), legacy REST enabled
-- **Production**: Maximum security, strict CORS, production rate limits (60/min), legacy REST disabled
+- **Preview Versions**: Test new features without affecting production users
+- **Production**: Live worker serving real users
+- **No Separate Workers**: Uses Cloudflare's versioned preview URLs on the same worker
 
 ### Available Tools
 

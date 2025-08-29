@@ -7,10 +7,9 @@ main = "dist/worker.js"
 # Default configuration (production)
 vars = { ENVIRONMENT = "production", DEBUG = "false" }
 
-# Preview environment
-[env.preview]
-name = "mcp-workflowy-remote-preview"
-vars = { ENVIRONMENT = "preview", DEBUG = "true" }
+# Preview versions of the same worker (not separate workers)
+# Use: wrangler versions upload --tag preview
+# Creates preview URLs like: <version>-mcp-workflowy-remote.<subdomain>.workers.dev
 
 # For private environment variables like API keys, use:
 # Production: wrangler secret put ALLOWED_API_KEYS
