@@ -214,7 +214,7 @@ jobs:
       - name: Create Preview Version
         id: deploy-preview
         run: |
-          # Create simple branch-based version tag
+          # Create version tag for organization in Cloudflare dashboard
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             VERSION_TAG="pr${{ github.event.number }}"
             echo "🚀 Creating preview version for PR #${{ github.event.number }}"
@@ -223,29 +223,20 @@ jobs:
             echo "🚀 Creating preview version for preview branch"
           fi
           
-          # Upload new version with branch prefix tag
+          # Upload new version (Cloudflare generates unique preview URL automatically)
           DEPLOY_OUTPUT=$(npx wrangler versions upload --tag "$VERSION_TAG" --message "Preview: Phase 0 Critical Operations" 2>&1)
           echo "$DEPLOY_OUTPUT"
           
-          # Extract version ID
+          # Extract version ID and preview URL from wrangler output
           VERSION_ID=$(echo "$DEPLOY_OUTPUT" | grep -o 'Version ID: [a-f0-9-]*' | cut -d' ' -f3)
-          
-          # Construct clean preview URL with branch prefix
-          # Note: Cloudflare Workers preview URLs use the format: https://<tag>-<worker-name>.<subdomain>.workers.dev
-          # The actual subdomain will be determined by Cloudflare based on the account
-          PREVIEW_URL="https://${VERSION_TAG}-mcp-workflowy-remote.<account-subdomain>.workers.dev"
-          
-          # Try to extract actual preview URL from deployment output if available
-          ACTUAL_PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[^[:space:]]*-mcp-workflowy-remote[^[:space:]]*\.workers\.dev' | head -1)
-          if [ -n "$ACTUAL_PREVIEW_URL" ]; then
-            PREVIEW_URL="$ACTUAL_PREVIEW_URL"
-          fi
+          PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'Version Preview URL: https://[^[:space:]]*' | cut -d' ' -f4)
           
           echo "version-id=$VERSION_ID" >> $GITHUB_OUTPUT
           echo "preview-url=$PREVIEW_URL" >> $GITHUB_OUTPUT
           echo "version-tag=$VERSION_TAG" >> $GITHUB_OUTPUT
           
           echo "✅ Preview version created: $VERSION_TAG"
+          echo "📝 Version ID: $VERSION_ID"
           echo "🔗 Preview URL: $PREVIEW_URL"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

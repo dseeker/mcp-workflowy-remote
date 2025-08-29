@@ -7,12 +7,12 @@ main = "dist/worker.js"
 # Default configuration (production)
 vars = { ENVIRONMENT = "production", DEBUG = "false" }
 
-# Preview versions of the same worker (not separate workers)
-# Use: wrangler versions upload --tag preview
-# Creates preview URLs like: <version>-mcp-workflowy-remote.<subdomain>.workers.dev
+# Preview versions use the same worker configuration
+# Cloudflare automatically generates unique preview URLs with version IDs
+# Format: https://<version-id>-mcp-workflowy-remote.<subdomain>.workers.dev
+# Use: wrangler versions upload --tag <tag-name>
 
 # For private environment variables like API keys, use:
-# Production: wrangler secret put ALLOWED_API_KEYS
-# Preview: wrangler secret put ALLOWED_API_KEYS --env preview
-# wrangler secret put WORKFLOWY_USERNAME [--env preview]  # Optional: fallback Workflowy username  
-# wrangler secret put WORKFLOWY_PASSWORD [--env preview]  # Optional: fallback Workflowy password
+# wrangler secret put ALLOWED_API_KEYS
+# wrangler secret put WORKFLOWY_USERNAME  # Optional: fallback username
+# wrangler secret put WORKFLOWY_PASSWORD  # Optional: fallback password

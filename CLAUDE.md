@@ -51,40 +51,41 @@ npm run dev:worker
 # or
 wrangler dev
 
-# Start Cloudflare Worker in preview environment
-npm run dev:preview
+# Start Cloudflare Worker in development mode
+npm run dev:worker
 # or
-wrangler dev --env preview
+wrangler dev
 ```
 
 ### Deployment
 
-#### **Two-Environment Setup**
-The project supports automatic branch-based deployment:
+#### **Version-Based Deployment**
+The project uses Cloudflare Workers versions for preview testing:
 
 ```bash
 # Production deployment
 npm run deploy                    # Manual production deployment
 git push origin main             # Automatic production deployment
 
-# Preview deployment  
-npm run deploy:preview           # Manual preview deployment
-git push origin preview          # Automatic preview deployment
+# Preview versions (same worker, different version)
+git push origin preview          # Creates preview version with unique URL
+# Create PR to main               # Creates preview version for testing
 
-# Pull request previews
-# Create PR to main               # Automatic preview deployment for testing
+# Manual version creation
+wrangler versions upload --tag preview
 
 # Dry run deployment (testing)
 npm run dry-run
 ```
 
-#### **Environment URLs**
-- **Production**: `mcp-workflowy-remote.<subdomain>.workers.dev`
-- **Preview**: `mcp-workflowy-remote-preview.<subdomain>.workers.dev`
+#### **Deployment URLs**
+- **Production**: `https://mcp-workflowy-remote.<subdomain>.workers.dev`
+- **Preview Versions**: `https://<version-id>-mcp-workflowy-remote.<subdomain>.workers.dev`
+- **Example Preview**: `https://06c20d83-mcp-workflowy-remote.daniel-bca.workers.dev`
 
-#### **Environment Configuration**
-- **Production**: Default environment in `wrangler.toml`, uses `ALLOWED_API_KEYS`
-- **Preview**: `[env.preview]` in `wrangler.toml`, uses `ALLOWED_API_KEYS_PREVIEW`
+#### **Configuration**
+- **Single Worker**: All versions use same `wrangler.toml` configuration
+- **API Keys**: All versions use same `ALLOWED_API_KEYS` (same worker)
 
 ## Architecture
 
@@ -140,28 +141,19 @@ WORKFLOWY_PASSWORD=your_password
 ALLOWED_API_KEYS=local-key-1,local-key-2
 ```
 
-### Cloudflare Workers - Two Environments
+### Cloudflare Workers - Versioned Deployment
 
-#### **Production Environment (Default)**
+#### **Worker Secrets Configuration**
 ```bash
-# Set production secrets (no --env flag)
+# Set secrets for the worker (used by all versions)
 wrangler secret put ALLOWED_API_KEYS
-wrangler secret put WORKFLOWY_USERNAME  
-wrangler secret put WORKFLOWY_PASSWORD
-```
-
-#### **Preview Environment** 
-```bash
-# Set preview secrets (with --env preview flag)
-wrangler secret put ALLOWED_API_KEYS --env preview
-wrangler secret put WORKFLOWY_USERNAME --env preview
-wrangler secret put WORKFLOWY_PASSWORD --env preview
+wrangler secret put WORKFLOWY_USERNAME  # Optional fallback
+wrangler secret put WORKFLOWY_PASSWORD  # Optional fallback
 ```
 
 #### **GitHub Secrets Configuration**
 For automatic deployments, set these repository secrets:
-- `ALLOWED_API_KEYS` - Production API keys
-- `ALLOWED_API_KEYS_PREVIEW` - Preview environment API keys  
+- `ALLOWED_API_KEYS` - API keys (used by both production and preview versions)
 - `CLOUDFLARE_API_TOKEN` - Cloudflare API token
 - `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID
 

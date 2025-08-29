@@ -152,10 +152,11 @@ The server supports production deployment with preview versions for testing:
 - **API Keys**: Use production `ALLOWED_API_KEYS`
 
 #### **Preview Versions**  
-- **URL**: `https://preview-mcp-workflowy-remote.<subdomain>.workers.dev` (preview branch)
-- **URL**: `https://pr<number>-mcp-workflowy-remote.<subdomain>.workers.dev` (pull requests)
+- **URL**: `https://<version-id>-mcp-workflowy-remote.<subdomain>.workers.dev`
+- **Format**: Cloudflare automatically generates unique URLs using version IDs
+- **Example**: `https://06c20d83-mcp-workflowy-remote.daniel-bca.workers.dev`
 - **Trigger**: Push to `preview` branch or pull requests to `main`
-- **Configuration**: Same worker, different version for testing new features
+- **Configuration**: Same worker, different version for testing new features  
 - **API Keys**: Uses same production `ALLOWED_API_KEYS` (same worker, just different version)
 
 #### **Version-based Workflow**
@@ -169,7 +170,7 @@ git push origin preview   # → Creates new preview version
 
 # Manual deployments  
 npm run deploy            # → Production
-wrangler versions upload --tag preview  # → Create preview version (preview-mcp-workflowy-remote.<subdomain>.workers.dev)
+wrangler versions upload --tag preview  # → Create preview version (unique URL with version ID prefix)
 ```
 
 ### Preview vs Production

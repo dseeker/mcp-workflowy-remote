@@ -1,11 +1,13 @@
 # ADR-011: Preview and Production Environments with Branch-based Deployment
 
 ## Status
-**Status**: Implemented  
+**Status**: Superseded  
 **Date**: 2025-08-29  
 **Authors**: System Architect  
 **Reviewers**: Development Team  
-**Implementation Completed**: 2025-08-29  
+**Superseded By**: Cloudflare Workers Versioned Previews (correct implementation)
+
+**Note**: This ADR documented an incorrect approach using separate workers. The actual implementation uses Cloudflare Workers' native versioning system with preview URLs, not separate environments. This approach was corrected after implementation.  
 
 ## Context and Problem Statement
 
