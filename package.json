@@ -22,7 +22,9 @@
     "start": "node dist/index.js",
     "postbuild": "chmod +x dist/index.js",
     "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler deploy --env preview",
     "dev:worker": "wrangler dev",
+    "dev:preview": "wrangler dev --env preview",
     "dry-run": "bash scripts/dry-run-deploy.sh"
   },
   "engines": {

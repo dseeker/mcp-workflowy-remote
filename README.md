@@ -141,13 +141,42 @@ curl https://your-worker-url.workers.dev/tools \
   -H "Authorization: Bearer your-api-key"
 ```
 
+### Deployment Environments
+
+The server supports two deployment environments with automatic branch-based deployment:
+
+#### **Production Environment**
+- **URL**: `https://mcp-workflowy-remote.<subdomain>.workers.dev`
+- **Trigger**: Push to `main` branch or manual deployment
+- **Configuration**: Maximum security, optimized performance, production rate limits
+- **API Keys**: Use production `ALLOWED_API_KEYS`
+
+#### **Preview Environment**  
+- **URL**: `https://mcp-workflowy-remote-preview.<subdomain>.workers.dev`
+- **Trigger**: Push to `preview` branch or pull requests to `main`
+- **Configuration**: Debug enabled, relaxed CORS, higher rate limits for testing
+- **API Keys**: Use preview `ALLOWED_API_KEYS_PREVIEW`
+
+#### **Branch-based Deployment**
+```bash
+# Automatic deployments
+git push origin main      # → Production deployment
+git push origin preview   # → Preview deployment
+
+# Pull request previews
+# Create PR to main        # → Automatic preview deployment
+
+# Manual deployments
+npm run deploy            # → Production
+npm run deploy:preview    # → Preview
+```
+
 ### Environment-Specific Behavior
 
-The server automatically adapts its behavior based on the deployment environment:
+The server automatically adapts its behavior based on the detected environment:
 
-- **Development**: All features enabled, permissive CORS, no rate limiting
-- **Staging**: Security features enabled, some debugging features available
-- **Production**: Maximum security, optimized performance, legacy features disabled
+- **Preview**: Debug enabled, permissive CORS, higher rate limits (100/min), legacy REST enabled
+- **Production**: Maximum security, strict CORS, production rate limits (60/min), legacy REST disabled
 
 ### Available Tools
 

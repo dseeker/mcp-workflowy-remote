@@ -4,17 +4,16 @@ compatibility_flags = ["nodejs_compat", "nodejs_als"]
 
 main = "dist/worker.js"
 
-[env.production]
-name = "mcp-workflowy-remote"
+# Default configuration (production)
+vars = { ENVIRONMENT = "production", DEBUG = "false" }
 
-[env.staging]
-name = "mcp-workflowy-remote-staging"
-
-# Environment variables for secure authentication
-[vars]
-# Add any public environment variables here
+# Preview environment
+[env.preview]
+name = "mcp-workflowy-remote-preview"
+vars = { ENVIRONMENT = "preview", DEBUG = "true" }
 
 # For private environment variables like API keys, use:
-# wrangler secret put ALLOWED_API_KEYS    # Comma-separated API keys for authentication
-# wrangler secret put WORKFLOWY_USERNAME  # Optional: fallback Workflowy username  
-# wrangler secret put WORKFLOWY_PASSWORD  # Optional: fallback Workflowy password
+# Production: wrangler secret put ALLOWED_API_KEYS
+# Preview: wrangler secret put ALLOWED_API_KEYS --env preview
+# wrangler secret put WORKFLOWY_USERNAME [--env preview]  # Optional: fallback Workflowy username  
+# wrangler secret put WORKFLOWY_PASSWORD [--env preview]  # Optional: fallback Workflowy password

@@ -46,22 +46,45 @@ npm start
 # or
 node dist/index.js
 
-# Start Cloudflare Worker in dev mode
+# Start Cloudflare Worker in dev mode (production environment)
 npm run dev:worker
 # or
 wrangler dev
+
+# Start Cloudflare Worker in preview environment
+npm run dev:preview
+# or
+wrangler dev --env preview
 ```
 
 ### Deployment
+
+#### **Two-Environment Setup**
+The project supports automatic branch-based deployment:
+
 ```bash
-# Deploy to Cloudflare Workers
-npm run deploy
-# or
-wrangler deploy
+# Production deployment
+npm run deploy                    # Manual production deployment
+git push origin main             # Automatic production deployment
+
+# Preview deployment  
+npm run deploy:preview           # Manual preview deployment
+git push origin preview          # Automatic preview deployment
+
+# Pull request previews
+# Create PR to main               # Automatic preview deployment for testing
 
 # Dry run deployment (testing)
 npm run dry-run
 ```
+
+#### **Environment URLs**
+- **Production**: `mcp-workflowy-remote.<subdomain>.workers.dev`
+- **Preview**: `mcp-workflowy-remote-preview.<subdomain>.workers.dev`
+
+#### **Environment Configuration**
+- **Production**: Default environment in `wrangler.toml`, uses `ALLOWED_API_KEYS`
+- **Preview**: `[env.preview]` in `wrangler.toml`, uses `ALLOWED_API_KEYS_PREVIEW`
 
 ## Architecture
 
@@ -114,15 +137,33 @@ Create `.env` file:
 ```
 WORKFLOWY_USERNAME=your_username
 WORKFLOWY_PASSWORD=your_password
+ALLOWED_API_KEYS=local-key-1,local-key-2
 ```
 
-### Cloudflare Workers
-Set secrets via Wrangler CLI:
+### Cloudflare Workers - Two Environments
+
+#### **Production Environment (Default)**
 ```bash
+# Set production secrets (no --env flag)
 wrangler secret put ALLOWED_API_KEYS
-wrangler secret put WORKFLOWY_USERNAME
+wrangler secret put WORKFLOWY_USERNAME  
 wrangler secret put WORKFLOWY_PASSWORD
 ```
+
+#### **Preview Environment** 
+```bash
+# Set preview secrets (with --env preview flag)
+wrangler secret put ALLOWED_API_KEYS --env preview
+wrangler secret put WORKFLOWY_USERNAME --env preview
+wrangler secret put WORKFLOWY_PASSWORD --env preview
+```
+
+#### **GitHub Secrets Configuration**
+For automatic deployments, set these repository secrets:
+- `ALLOWED_API_KEYS` - Production API keys
+- `ALLOWED_API_KEYS_PREVIEW` - Preview environment API keys  
+- `CLOUDFLARE_API_TOKEN` - Cloudflare API token
+- `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID
 
 ## Testing Architecture
 

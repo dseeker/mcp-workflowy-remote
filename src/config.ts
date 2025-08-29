@@ -4,7 +4,7 @@
  */
 
 export interface ServerConfig {
-  environment: 'development' | 'staging' | 'production';
+  environment: 'preview' | 'production';
   cors: {
     allowedOrigins: string[];
     allowedMethods: string[];
@@ -48,20 +48,16 @@ export class ConfigManager {
     };
   }
 
-  private detectEnvironment(env: any): 'development' | 'staging' | 'production' {
+  private detectEnvironment(env: any): 'preview' | 'production' {
     // Check explicit environment variable
     if (env.ENVIRONMENT) {
-      return env.ENVIRONMENT.toLowerCase();
+      const envLower = env.ENVIRONMENT.toLowerCase();
+      return envLower === 'preview' ? 'preview' : 'production';
     }
 
-    // Check for staging indicators
-    if (env.STAGING || (env.CF_PAGES_BRANCH && env.CF_PAGES_BRANCH !== 'main')) {
-      return 'staging';
-    }
-
-    // Check for development indicators
-    if (!env.ALLOWED_API_KEYS || env.ALLOWED_API_KEYS.includes('test-key')) {
-      return 'development';
+    // Check for preview indicators
+    if (env.DEBUG === 'true' || !env.ALLOWED_API_KEYS || env.ALLOWED_API_KEYS.includes('test-key')) {
+      return 'preview';
     }
 
     // Default to production
@@ -70,20 +66,14 @@ export class ConfigManager {
 
   private getCorsConfig(environment: string) {
     switch (environment) {
-      case 'development':
-        return {
-          allowedOrigins: ['*'],
-          allowedMethods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
-          allowedHeaders: ['*']
-        };
-      case 'staging':
+      case 'preview':
         return {
           allowedOrigins: [
             'https://claude.ai',
             'https://console.anthropic.com',
             'http://localhost:*'
           ],
-          allowedMethods: ['GET', 'POST', 'OPTIONS'],
+          allowedMethods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
           allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
         };
       case 'production':
@@ -124,12 +114,7 @@ export class ConfigManager {
 
   private getRateLimitConfig(environment: string) {
     switch (environment) {
-      case 'development':
-        return {
-          enabled: false,
-          requestsPerMinute: 0
-        };
-      case 'staging':
+      case 'preview':
         return {
           enabled: true,
           requestsPerMinute: 100
