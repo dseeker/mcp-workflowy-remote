@@ -87,14 +87,14 @@ jobs:
       - name: Upload secrets and deploy to Cloudflare Workers
         id: deploy
         run: |
-          # First, upload the secrets
+          # First, upload the secrets to production environment
           echo "🔑 Uploading secrets..."
-          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk
+          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk --env production
           
           # Then deploy and capture output
           VERSION="${{ needs.version.outputs.version || 'dev' }}"
           echo "🚀 Deploying worker v$VERSION..."
-          DEPLOY_OUTPUT=$(npx wrangler deploy 2>&1)
+          DEPLOY_OUTPUT=$(npx wrangler deploy --env production 2>&1)
           echo "$DEPLOY_OUTPUT"
           
           # Extract the worker URL from the output
