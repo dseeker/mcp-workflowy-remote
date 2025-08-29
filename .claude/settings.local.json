@@ -30,7 +30,8 @@
       "Bash(git fetch:*)",
       "Bash(git push:*)",
       "Bash(npm install:*)",
-      "Bash(npx wrangler:*)"
+      "Bash(npx wrangler:*)",
+      "WebFetch(domain:developers.cloudflare.com)"
     ],
     "deny": [],
     "ask": []
