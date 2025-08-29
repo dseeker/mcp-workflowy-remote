@@ -1,3 +1,11 @@
+# [0.2.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.1.6...v0.2.0) (2025-08-29)
+
+
+### Features
+
+* add advanced search parameters with comprehensive filtering ([e3bcc8c](https://github.com/dseeker/mcp-workflowy-remote/commit/e3bcc8c3ce6e93fc88bb41d7cc45a2b2e60adc60))
+* add Cloudflare Workers remote deployment with 100% feature parity ([7dc57c3](https://github.com/dseeker/mcp-workflowy-remote/commit/7dc57c3f5d5d9edb64fb5cb665d634c333755db0))
+
 ## [0.1.6](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.1.5...v0.1.6) (2025-08-28)
 
 ## [0.1.5](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.1.4...v0.1.5) (2025-08-28)
