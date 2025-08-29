@@ -12,7 +12,21 @@
       "Bash(grep:*)",
       "Bash(curl:*)",
       "Bash(git add:*)",
-      "Read(/Users/A200326959/**)"
+      "Read(/Users/A200326959/**)",
+      "Read(D:\\Dados\\Code/**)",
+      "Read(D:\\Dados\\Code\\mcp-workflowy/**)",
+      "Read(D:\\Dados\\Code\\mcp-workflowy/**)",
+      "Read(D:\\Dados\\Code\\mcp-workflowy/**)",
+      "Read(D:\\Dados\\Code\\mcp-workflowy/**)",
+      "Bash(claude mcp:*)",
+      "Bash(bun install:*)",
+      "Bash(npm install)",
+      "Bash(bun:*)",
+      "Bash(rm:*)",
+      "mcp__workflowy__search_nodes",
+      "Bash(npm test)",
+      "Bash(git diff:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

@@ -41,7 +41,7 @@ private validateApiKey(apiKey: string | null, env: any): boolean {
 
 **Single User:**
 ```
-ALLOWED_API_KEYS=XrZ8k3Nm9Qp2wE5vY7uI1oP4lK6jH3sD2cV9fR8mT1bN0x
+ALLOWED_API_KEYS=X****N0x=
 ```
 
 **Multiple Users/Clients:**
