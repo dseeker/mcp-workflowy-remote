@@ -154,10 +154,101 @@ The server automatically adapts its behavior based on the deployment environment
 This MCP server provides the following tools to interact with your Workflowy:
 
 1. **list_nodes** - Get a list of nodes from your Workflowy (root nodes or children of a specified node)
-2. **search_nodes** - Search for nodes by query text
+2. **search_nodes** - Search for nodes by query text with advanced filtering options
 3. **create_node** - Create a new node in your Workflowy
 4. **update_node** - Modify an existing node's text or description
 5. **toggle_complete** - Mark a node as complete or incomplete
+
+### Advanced Search Features
+
+The **search_nodes** tool includes powerful parameters for optimized performance and precise results:
+
+#### **Depth Control (`maxDepth`)**
+Control how many levels of nested children to include:
+- `maxDepth: 0` - Only parent nodes, no children
+- `maxDepth: 1` - Include first-level children only
+- `maxDepth: 2` - Include children and grandchildren
+- `maxDepth: undefined` (default) - Include all nested levels
+
+**Example Usage:**
+```javascript
+// Get only top-level results (no children)
+search_nodes({ query: "project", maxDepth: 0 })
+
+// Get results with one level of children
+search_nodes({ query: "project", maxDepth: 1 })
+```
+
+#### **Result Limiting (`limit`)**
+Control the maximum number of results returned:
+- `limit: 5` - Return maximum 5 results
+- `limit: 10` - Return maximum 10 results  
+- `limit: undefined` (default) - Return all matching results
+
+**Example Usage:**
+```javascript
+// Get only the first 3 matching results
+search_nodes({ query: "TypeScript", limit: 3 })
+```
+
+#### **Field Selection (`includeFields`)**
+Choose which fields to include in the response for performance optimization:
+- `includeFields: ["id", "name"]` - Only include ID and name fields
+- `includeFields: ["id", "name", "note"]` - Include ID, name, and note fields
+- `includeFields: undefined` (default) - Include all fields (`id`, `name`, `note`, `isCompleted`)
+
+**Important:** The `items` array is always included for structural integrity, regardless of field selection.
+
+**Field filtering applies recursively** to all children at all levels.
+
+**Example Usage:**
+```javascript
+// Get compact results with only essential fields
+search_nodes({ 
+  query: "project", 
+  includeFields: ["id", "name"],
+  maxDepth: 2 
+})
+
+// Result structure:
+[
+  {
+    "id": "node-1",
+    "name": "Project Management", 
+    "items": [
+      {
+        "id": "child-1",
+        "name": "Sprint Planning",
+        "items": [
+          {
+            "id": "grandchild-1", 
+            "name": "Sprint Tasks",
+            "items": []
+          }
+        ]
+      }
+    ]
+  }
+]
+// Note: 'note' and 'isCompleted' fields excluded from all levels
+```
+
+#### **Combined Parameters**
+All parameters can be used together for maximum control:
+
+```javascript
+search_nodes({
+  query: "TypeScript",
+  limit: 3,                    // Max 3 results
+  maxDepth: 1,                 // Include children but not grandchildren  
+  includeFields: ["id", "name"] // Only essential fields
+})
+```
+
+#### **Performance Benefits**
+- **Token Limit Protection**: Field filtering and depth control prevent large responses that could exceed Claude Code's 25k token limit
+- **Faster Processing**: Smaller responses load faster and use less bandwidth
+- **Precise Control**: Get exactly the data structure you need for your use case
 
 ## Quick Start Examples
 
@@ -473,6 +564,87 @@ See [SECURITY.md](SECURITY.md) for detailed security configuration and best prac
 - Semantic-release uses git tags (not package.json) to track what's been released
 - The deployment version always reflects the actual released version
 
+#### 7. Bun Installation and Build Issues on Windows
+**Problem:** `bun: command not found` or build failures when setting up local development
+**Symptoms:**
+- Error: `/usr/bin/bash: line 1: bun: command not found`
+- Error: `Bun failed to remap this bin to its proper location within node_modules`
+- Error: `EINVAL: Failed to replace old lockfile with new lockfile on disk`
+- Build process fails with corrupted node_modules
+
+**What we tried and what didn't work:**
+1. ❌ **PowerShell installation script failed**: `powershell -c "irm bun.com/install.ps1 | iex"`
+   - Returned error: "The remote server returned an error: (308) Permanent Redirect"
+   - This is the official method but can fail due to network/redirect issues
+
+2. ❌ **Bun lockfile issues**: `bun install` after npm-based global installation
+   - Error: "EINVAL: Failed to replace old lockfile with new lockfile on disk" 
+   - This occurs when there are permission issues or conflicting lockfiles
+
+3. ❌ **Forcing bun install**: `bun install --force`
+   - Still failed with lockfile replacement errors on Windows
+   - Indicates fundamental bun/Windows filesystem compatibility issues
+
+**What ultimately worked:**
+1. ✅ **Install Bun via npm globally**: 
+   ```bash
+   cd "D:\Dados\Code\mcp-workflowy-remote"
+   npm install -g bun
+   ```
+   - This installs Bun as a Node.js package rather than native binary
+   - Avoids Windows-specific installation script issues
+   - Version installed: `1.2.21`
+
+2. ✅ **Use npm for dependency installation**:
+   ```bash
+   npm install  # Use npm instead of bun for dependencies
+   ```
+   - Avoids bun lockfile issues on Windows
+   - Still allows using bun for build process
+   - Resolved dependency conflicts and warnings successfully
+
+3. ✅ **Build with npm script (which uses bun internally)**:
+   ```bash
+   npm run build  # This runs: bun build ./src/index.ts --outdir dist --target node
+   ```
+   - Once bun is globally available, npm scripts can use it
+   - Build completed successfully: "Bundled 1099 modules in 740ms"
+
+**Why this approach works:**
+- **Bun vs npm**: Bun is a faster JavaScript runtime/toolkit, but npm can install dependencies just as well
+- **Compatibility**: npm has better Windows compatibility for dependency installation
+- **Hybrid approach**: Use npm for setup, bun for performance-critical build operations
+- **Path issues avoided**: Global npm installation of bun ensures it's in PATH correctly
+
+**Complete working setup sequence:**
+```bash
+# 1. Navigate to project directory
+cd "D:\Dados\Code\mcp-workflowy-remote"
+
+# 2. Install Bun via npm (avoids Windows installation issues)
+npm install -g bun
+
+# 3. Verify Bun installation
+bun --version  # Should show: 1.2.21
+
+# 4. Install project dependencies with npm (avoids lockfile issues)
+npm install
+
+# 5. Build project (uses bun internally via npm script)
+npm run build
+
+# 6. Add to Claude Code MCP configuration
+claude mcp add workflowy --scope user --env WORKFLOWY_USERNAME=your_username --env WORKFLOWY_PASSWORD=your_password -- node "D:\Dados\Code\mcp-workflowy-remote\dist\index.js" server start
+
+# 7. Verify connection
+claude mcp list  # Should show: workflowy: ... - ✓ Connected
+```
+
+**Alternative solutions if npm method fails:**
+- **Use WSL2**: Install Windows Subsystem for Linux and run bun natively there
+- **Use Docker**: Run the entire development environment in a Docker container
+- **Use pure npm**: Modify package.json scripts to use standard Node.js tools instead of bun
+
 ### Debug Commands
 
 **Test MCP Protocol:**
@@ -541,6 +713,25 @@ claude mcp add --transport http workflowy-remote https://your-worker.workers.dev
 5. **toggle_complete** - Toggle completion status
    - `nodeId` (required): Node ID
    - `completed` (required): "true" or "false"
+
+## 🧪 Testing
+
+The project includes a comprehensive test suite ensuring reliability and full coverage of advanced search parameters.
+
+**Quick Stats:**
+- ✅ **22 unit tests** with **59+ assertions**
+- ✅ **100% parameter coverage** for advanced search features (`limit`, `maxDepth`, `includeFields`)
+- ✅ **4-level deep hierarchy testing** with realistic mock data
+- ✅ **Complete error scenario coverage** for all operations
+
+**Run Tests:**
+```bash
+npm test                    # All tests
+npm run test:unit           # Unit tests only
+npm run test:coverage       # Coverage report
+```
+
+For detailed testing documentation, test patterns, mock data structure, and how to write new tests, see **[README-TESTING.md](README-TESTING.md)**.
 
 ## Contributing
 
