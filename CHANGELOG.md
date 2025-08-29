@@ -1,3 +1,11 @@
+# [0.3.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.2.3...v0.3.0) (2025-08-29)
+
+
+### Features
+
+* enhance list_nodes and search_nodes with advanced filtering and preview ([3fb1092](https://github.com/dseeker/mcp-workflowy-remote/commit/3fb109241fb3103d424c961984b42a5b2d3898ea))
+* implement two-environment deployment with preview and production ([ec39f39](https://github.com/dseeker/mcp-workflowy-remote/commit/ec39f3996b1dbd0f738a3fbf55bef6ba560efbbc))
+
 ## [0.2.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.2.2...v0.2.3) (2025-08-29)
 
 ## [0.2.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.2.1...v0.2.2) (2025-08-29)
