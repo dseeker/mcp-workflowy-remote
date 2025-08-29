@@ -214,26 +214,31 @@ jobs:
       - name: Create Preview Version
         id: deploy-preview
         run: |
-          # Create version tag
+          # Create simple branch-based version tag
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            VERSION_TAG="pr-${{ github.event.number }}"
+            VERSION_TAG="pr${{ github.event.number }}"
             echo "🚀 Creating preview version for PR #${{ github.event.number }}"
           else
-            VERSION_TAG="preview-$(date +%Y%m%d-%H%M%S)"
+            VERSION_TAG="preview"
             echo "🚀 Creating preview version for preview branch"
           fi
           
-          # Upload new version with preview tag (doesn't replace production)
+          # Upload new version with branch prefix tag
           DEPLOY_OUTPUT=$(npx wrangler versions upload --tag "$VERSION_TAG" --message "Preview: Phase 0 Critical Operations" 2>&1)
           echo "$DEPLOY_OUTPUT"
           
-          # Extract version ID and preview URL
+          # Extract version ID
           VERSION_ID=$(echo "$DEPLOY_OUTPUT" | grep -o 'Version ID: [a-f0-9-]*' | cut -d' ' -f3)
-          PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[a-zA-Z0-9.-]*\.workers\.dev' | head -1)
           
-          if [ -z "$PREVIEW_URL" ]; then
-            # Construct preview URL from version ID if not captured
-            PREVIEW_URL="https://${VERSION_ID}-mcp-workflowy-remote.${CLOUDFLARE_ACCOUNT_ID}.workers.dev"
+          # Construct clean preview URL with branch prefix
+          # Note: Cloudflare Workers preview URLs use the format: https://<tag>-<worker-name>.<subdomain>.workers.dev
+          # The actual subdomain will be determined by Cloudflare based on the account
+          PREVIEW_URL="https://${VERSION_TAG}-mcp-workflowy-remote.<account-subdomain>.workers.dev"
+          
+          # Try to extract actual preview URL from deployment output if available
+          ACTUAL_PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[^[:space:]]*-mcp-workflowy-remote[^[:space:]]*\.workers\.dev' | head -1)
+          if [ -n "$ACTUAL_PREVIEW_URL" ]; then
+            PREVIEW_URL="$ACTUAL_PREVIEW_URL"
           fi
           
           echo "version-id=$VERSION_ID" >> $GITHUB_OUTPUT

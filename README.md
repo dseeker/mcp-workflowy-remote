@@ -152,7 +152,8 @@ The server supports production deployment with preview versions for testing:
 - **API Keys**: Use production `ALLOWED_API_KEYS`
 
 #### **Preview Versions**  
-- **URL**: `https://<version-id>-mcp-workflowy-remote.<subdomain>.workers.dev`
+- **URL**: `https://preview-mcp-workflowy-remote.<subdomain>.workers.dev` (preview branch)
+- **URL**: `https://pr<number>-mcp-workflowy-remote.<subdomain>.workers.dev` (pull requests)
 - **Trigger**: Push to `preview` branch or pull requests to `main`
 - **Configuration**: Same worker, different version for testing new features
 - **API Keys**: Uses same production `ALLOWED_API_KEYS` (same worker, just different version)
@@ -166,9 +167,9 @@ git push origin main      # → Updates production worker
 git push origin preview   # → Creates new preview version
 # Create PR to main        # → Creates preview version for PR
 
-# Manual deployments
+# Manual deployments  
 npm run deploy            # → Production
-wrangler versions upload --tag preview  # → Create preview version
+wrangler versions upload --tag preview  # → Create preview version (preview-mcp-workflowy-remote.<subdomain>.workers.dev)
 ```
 
 ### Preview vs Production
