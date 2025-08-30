@@ -16,6 +16,7 @@ The project documentation is organized as follows:
 - **docs/ARCHITECTURE.md** - System architecture and flow diagrams
 - **docs/TROUBLESHOOTING.md** - Common issues and solutions
 - **README-TESTING.md** - Test patterns and mock data structure
+- **adr/** - Architecture Decision Records for feature development and design decisions
 
 ## Common Development Commands
 
