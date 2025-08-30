@@ -1,3 +1,10 @@
+## [0.4.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.0...v0.4.1) (2025-08-30)
+
+
+### Bug Fixes
+
+* deploy worker before uploading secrets to avoid Cloudflare API error ([ace4a40](https://github.com/dseeker/mcp-workflowy-remote/commit/ace4a401330fcd01013c9755a936ab7209f13acb))
+
 # [0.4.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.3.0...v0.4.0) (2025-08-30)
 
 
