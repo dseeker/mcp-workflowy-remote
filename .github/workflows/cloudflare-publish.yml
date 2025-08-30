@@ -290,6 +290,9 @@ jobs:
             
             # Log this request info
             echo "$(date -Iseconds) | $desc | $status_code | ${duration}ms | $url" >> workflow_logs.txt
+            
+            # Wait a moment for worker logs to be captured
+            sleep 1
           }
           
           # Start wrangler tail in background with filtered output
@@ -302,13 +305,13 @@ jobs:
               
               # Filter and display only relevant parts
               if echo "$line" | jq -e . >/dev/null 2>&1; then
-                # Extract only the important parts from JSON
-                OUTCOME=$(echo "$line" | jq -r '.outcome // "unknown"')
-                WALL_TIME=$(echo "$line" | jq -r '.wallTime // 0')
-                CPU_TIME=$(echo "$line" | jq -r '.cpuTime // 0')
-                STATUS=$(echo "$line" | jq -r '.event.response.status // "N/A"')
-                METHOD=$(echo "$line" | jq -r '.event.request.method // "N/A"')
-                URL=$(echo "$line" | jq -r '.event.request.url // "N/A"' | sed 's|https://mcp-workflowy-remote.daniel-bca.workers.dev||')
+                # Extract only the important parts from JSON with error suppression
+                OUTCOME=$(echo "$line" | jq -r '.outcome // "unknown"' 2>/dev/null)
+                WALL_TIME=$(echo "$line" | jq -r '.wallTime // 0' 2>/dev/null)
+                CPU_TIME=$(echo "$line" | jq -r '.cpuTime // 0' 2>/dev/null)
+                STATUS=$(echo "$line" | jq -r '.event.response.status // "N/A"' 2>/dev/null)
+                METHOD=$(echo "$line" | jq -r '.event.request.method // "N/A"' 2>/dev/null)
+                URL=$(echo "$line" | jq -r '.event.request.url // "N/A"' 2>/dev/null | sed 's|https://mcp-workflowy-remote.daniel-bca.workers.dev||')
                 
                 # Extract our structured logs from the logs array
                 LOG_MESSAGES=$(echo "$line" | jq -r '.logs[]?.message[]? // empty' 2>/dev/null)
@@ -323,15 +326,15 @@ jobs:
                     if [ -n "$msg" ]; then
                       # Try to parse our structured log
                       if echo "$msg" | jq -e . >/dev/null 2>&1; then
-                        TIMESTAMP=$(echo "$msg" | jq -r '.timestamp // ""')
-                        LEVEL=$(echo "$msg" | jq -r '.level // "INFO"')
-                        MESSAGE=$(echo "$msg" | jq -r '.message // ""')
-                        ENDPOINT=$(echo "$msg" | jq -r '.context.endpoint // ""')
-                        DURATION=$(echo "$msg" | jq -r '.context.duration // ""')
-                        PERF_METRIC=$(echo "$msg" | jq -r '.context.performanceMetric // ""')
+                        TIMESTAMP=$(echo "$msg" | jq -r '.timestamp // ""' 2>/dev/null)
+                        LEVEL=$(echo "$msg" | jq -r '.level // "INFO"' 2>/dev/null)
+                        MESSAGE=$(echo "$msg" | jq -r '.message // ""' 2>/dev/null)
+                        ENDPOINT=$(echo "$msg" | jq -r '.context.endpoint // ""' 2>/dev/null)
+                        DURATION=$(echo "$msg" | jq -r '.context.duration // ""' 2>/dev/null)
+                        PERF_METRIC=$(echo "$msg" | jq -r '.context.performanceMetric // ""' 2>/dev/null)
                         
                         # Format timestamp to be more readable
-                        TIME_ONLY=$(echo "$TIMESTAMP" | sed 's/.*T\([0-9:]\{8\}\).*/\1/')
+                        TIME_ONLY=$(echo "$TIMESTAMP" | sed 's/.*T\([0-9:]\{8\}\).*/\1/' 2>/dev/null)
                         
                         # Show performance metrics specially
                         if [ "$PERF_METRIC" = "true" ]; then
@@ -340,8 +343,12 @@ jobs:
                           echo "📝 LOG  [$TIME_ONLY] $LEVEL: $MESSAGE ($ENDPOINT)"
                         fi
                       else
-                        # Plain message
-                        echo "📜 TEXT: $msg"
+                        # Check if it looks like a structured log
+                        if echo "$msg" | grep -q -E "(level|timestamp|message|context)"; then
+                          echo "📝 STRUCT: $msg"
+                        else
+                          echo "📜 TEXT: $msg"
+                        fi
                       fi
                     fi
                   done
@@ -452,10 +459,10 @@ jobs:
             echo "✅ Wrangler tail captured $LOG_COUNT raw log entries"
             
             # Parse and show summary statistics
-            REQUESTS=$(grep -c '"outcome":' worker_logs.json 2>/dev/null || echo "0")
-            ERRORS=$(grep -c '"level":"ERROR"' worker_logs.json 2>/dev/null || echo "0")
-            WARNINGS=$(grep -c '"level":"WARN"' worker_logs.json 2>/dev/null || echo "0")
-            PERF_LOGS=$(grep -c '"performanceMetric":true' worker_logs.json 2>/dev/null || echo "0")
+            REQUESTS=$(($(grep -c '"outcome":' worker_logs.json 2>/dev/null || echo "0")))
+            ERRORS=$(($(grep -c '"level":"ERROR"' worker_logs.json 2>/dev/null || echo "0")))
+            WARNINGS=$(($(grep -c '"level":"WARN"' worker_logs.json 2>/dev/null || echo "0")))
+            PERF_LOGS=$(($(grep -c '"performanceMetric":true' worker_logs.json 2>/dev/null || echo "0")))
             
             echo "📊 Summary:"
             echo "   • Requests processed: $REQUESTS"
@@ -470,11 +477,21 @@ jobs:
               echo "$ENDPOINTS" | sed 's/"endpoint":"/     - /' | sed 's/"$//'
             fi
             
+            # Try to find and show any structured logs from our application
+            STRUCTURED_LOGS=$(grep -o '"logs":\[[^]]*\]' worker_logs.json 2>/dev/null | grep -E "(level|timestamp|message)" | head -5 || echo "")
+            if [ -n "$STRUCTURED_LOGS" ]; then
+              echo ""
+              echo "📝 === STRUCTURED APPLICATION LOGS ==="
+              echo "$STRUCTURED_LOGS" | while IFS= read -r log_entry; do
+                echo "     $log_entry"
+              done
+            fi
+            
             # Show any errors
             if [ "$ERRORS" -gt 0 ]; then
               echo ""
               echo "⚠️  === ERROR DETAILS ==="
-              grep '"level":"ERROR"' worker_logs.json | head -3 | while IFS= read -r error_line; do
+              grep '"level":"ERROR"' worker_logs.json 2>/dev/null | head -3 | while IFS= read -r error_line; do
                 ERROR_MSG=$(echo "$error_line" | jq -r '.logs[]?.message[]? // empty' 2>/dev/null | jq -r '.message // "Unknown error"' 2>/dev/null)
                 if [ -n "$ERROR_MSG" ]; then
                   echo "     ❌ $ERROR_MSG"
