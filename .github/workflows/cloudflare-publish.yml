@@ -235,7 +235,8 @@ jobs:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          echo "📋 Starting enhanced worker log collection..."
+          echo "📋 Starting optimized worker log collection..."
+          echo "⚡ Optimizations: 5s init (was 8s), 8s final wait (was 15s), variable request delays"
           
           # Verify we have required variables
           if [ -z "$WORKER_URL" ]; then
@@ -291,15 +292,19 @@ jobs:
             # Log this request info
             echo "$(date -Iseconds) | $desc | $status_code | ${duration}ms | $url" >> workflow_logs.txt
             
-            # Wait a moment for worker logs to be captured
-            sleep 1
+            # Wait briefly for worker logs to be captured (shorter for simple requests)
+            if echo "$url" | grep -q "health"; then
+              sleep 0.5
+            else
+              sleep 1
+            fi
           }
           
           # Start wrangler tail in background with filtered output
-          echo "📡 Starting wrangler tail (will timeout after 50s)..."
+          echo "📡 Starting wrangler tail (will timeout after 35s)..."
           echo "   Tail command: npx wrangler tail --format json"
           (
-            timeout 50s npx wrangler tail --format json 2>&1 | while IFS= read -r line; do
+            timeout 35s npx wrangler tail --format json 2>&1 | while IFS= read -r line; do
               # Save raw log to file
               echo "$line" >> worker_logs.json
               
@@ -364,8 +369,8 @@ jobs:
           TAIL_PID=$!
           
           # Give wrangler tail time to initialize
-          echo "⏳ Waiting for wrangler tail to initialize (8 seconds)..."
-          sleep 8
+          echo "⏳ Waiting for wrangler tail to initialize (5 seconds)..."
+          sleep 5
           
           # Check if tail process is still running
           if ! kill -0 $TAIL_PID 2>/dev/null; then
@@ -380,16 +385,16 @@ jobs:
           echo ""
           
           make_request "$WORKER_URL/health" "Health check (no auth)"
-          sleep 3
+          sleep 2
           
           make_request "$WORKER_URL/" "Root endpoint info"
-          sleep 3
+          sleep 2
           
           make_request "$WORKER_URL/tools" "Tools endpoint (with auth)" "-H 'Authorization: Bearer $FIRST_API_KEY'"
-          sleep 3
+          sleep 2
           
           make_request "$WORKER_URL/tools" "Tools endpoint (no auth - should fail)"
-          sleep 3
+          sleep 2
           
           # MCP request
           echo "🔄 Testing MCP endpoint with tools/list"
@@ -427,8 +432,8 @@ jobs:
           sleep 2
           
           # Wait for final logs
-          echo "⏱️  Waiting for final logs to be captured (15 seconds)..."
-          sleep 15
+          echo "⏱️  Waiting for final logs to be captured (8 seconds)..."
+          sleep 8
           
           # Stop log collection
           echo "🛑 Stopping wrangler tail..."
