@@ -292,13 +292,66 @@ jobs:
             echo "$(date -Iseconds) | $desc | $status_code | ${duration}ms | $url" >> workflow_logs.txt
           }
           
-          # Start wrangler tail in background with both file and stdout output
+          # Start wrangler tail in background with filtered output
           echo "📡 Starting wrangler tail (will timeout after 50s)..."
           echo "   Tail command: npx wrangler tail --format json"
           (
             timeout 50s npx wrangler tail --format json 2>&1 | while IFS= read -r line; do
-              echo "WORKER_LOG: $line"
+              # Save raw log to file
               echo "$line" >> worker_logs.json
+              
+              # Filter and display only relevant parts
+              if echo "$line" | jq -e . >/dev/null 2>&1; then
+                # Extract only the important parts from JSON
+                OUTCOME=$(echo "$line" | jq -r '.outcome // "unknown"')
+                WALL_TIME=$(echo "$line" | jq -r '.wallTime // 0')
+                CPU_TIME=$(echo "$line" | jq -r '.cpuTime // 0')
+                STATUS=$(echo "$line" | jq -r '.event.response.status // "N/A"')
+                METHOD=$(echo "$line" | jq -r '.event.request.method // "N/A"')
+                URL=$(echo "$line" | jq -r '.event.request.url // "N/A"' | sed 's|https://mcp-workflowy-remote.daniel-bca.workers.dev||')
+                
+                # Extract our structured logs from the logs array
+                LOG_MESSAGES=$(echo "$line" | jq -r '.logs[]?.message[]? // empty' 2>/dev/null)
+                
+                if [ "$OUTCOME" != "null" ] && [ "$OUTCOME" != "unknown" ]; then
+                  echo "📊 WORKER: $METHOD $URL | $STATUS | ${WALL_TIME}ms wall, ${CPU_TIME}ms cpu | $OUTCOME"
+                fi
+                
+                # Show our structured log messages (the good stuff!)
+                if [ -n "$LOG_MESSAGES" ]; then
+                  echo "$LOG_MESSAGES" | while IFS= read -r msg; do
+                    if [ -n "$msg" ]; then
+                      # Try to parse our structured log
+                      if echo "$msg" | jq -e . >/dev/null 2>&1; then
+                        TIMESTAMP=$(echo "$msg" | jq -r '.timestamp // ""')
+                        LEVEL=$(echo "$msg" | jq -r '.level // "INFO"')
+                        MESSAGE=$(echo "$msg" | jq -r '.message // ""')
+                        ENDPOINT=$(echo "$msg" | jq -r '.context.endpoint // ""')
+                        DURATION=$(echo "$msg" | jq -r '.context.duration // ""')
+                        PERF_METRIC=$(echo "$msg" | jq -r '.context.performanceMetric // ""')
+                        
+                        # Format timestamp to be more readable
+                        TIME_ONLY=$(echo "$TIMESTAMP" | sed 's/.*T\([0-9:]\{8\}\).*/\1/')
+                        
+                        # Show performance metrics specially
+                        if [ "$PERF_METRIC" = "true" ]; then
+                          echo "⚡ PERF [$TIME_ONLY] $LEVEL: $MESSAGE ($ENDPOINT) ${DURATION}ms"
+                        else
+                          echo "📝 LOG  [$TIME_ONLY] $LEVEL: $MESSAGE ($ENDPOINT)"
+                        fi
+                      else
+                        # Plain message
+                        echo "📜 TEXT: $msg"
+                      fi
+                    fi
+                  done
+                fi
+              else
+                # Non-JSON line (errors, etc.)
+                if [ -n "$line" ]; then
+                  echo "⚠️  RAW: $line"
+                fi
+              fi
             done
           ) &
           TAIL_PID=$!
@@ -396,25 +449,37 @@ jobs:
           # Show what we collected
           if [ -f worker_logs.json ] && [ -s worker_logs.json ]; then
             LOG_COUNT=$(wc -l < worker_logs.json 2>/dev/null || echo "0")
-            echo "✅ Wrangler tail captured $LOG_COUNT log lines"
+            echo "✅ Wrangler tail captured $LOG_COUNT raw log entries"
             
-            echo ""
-            echo "📝 === CAPTURED WORKER LOGS ==="
-            echo ""
+            # Parse and show summary statistics
+            REQUESTS=$(grep -c '"outcome":' worker_logs.json 2>/dev/null || echo "0")
+            ERRORS=$(grep -c '"level":"ERROR"' worker_logs.json 2>/dev/null || echo "0")
+            WARNINGS=$(grep -c '"level":"WARN"' worker_logs.json 2>/dev/null || echo "0")
+            PERF_LOGS=$(grep -c '"performanceMetric":true' worker_logs.json 2>/dev/null || echo "0")
             
-            # Show all captured logs with better formatting
-            if [ "$LOG_COUNT" -gt 0 ]; then
-              # Try to parse as JSON and format nicely
-              while IFS= read -r line; do
-                if [ -n "$line" ]; then
-                  # Try to parse as JSON
-                  if echo "$line" | jq -e . >/dev/null 2>&1; then
-                    echo "$line" | jq -r '[.timestamp // "no-time", .level // "INFO", .message // .] | join(" | ")' 2>/dev/null || echo "$line"
-                  else
-                    echo "RAW: $line"
-                  fi
+            echo "📊 Summary:"
+            echo "   • Requests processed: $REQUESTS"
+            echo "   • Performance metrics: $PERF_LOGS"
+            echo "   • Warnings: $WARNINGS"
+            echo "   • Errors: $ERRORS"
+            
+            # Show unique endpoints accessed
+            ENDPOINTS=$(grep -o '"endpoint":"[^"]*"' worker_logs.json 2>/dev/null | sort | uniq | head -10)
+            if [ -n "$ENDPOINTS" ]; then
+              echo "   • Endpoints accessed:"
+              echo "$ENDPOINTS" | sed 's/"endpoint":"/     - /' | sed 's/"$//'
+            fi
+            
+            # Show any errors
+            if [ "$ERRORS" -gt 0 ]; then
+              echo ""
+              echo "⚠️  === ERROR DETAILS ==="
+              grep '"level":"ERROR"' worker_logs.json | head -3 | while IFS= read -r error_line; do
+                ERROR_MSG=$(echo "$error_line" | jq -r '.logs[]?.message[]? // empty' 2>/dev/null | jq -r '.message // "Unknown error"' 2>/dev/null)
+                if [ -n "$ERROR_MSG" ]; then
+                  echo "     ❌ $ERROR_MSG"
                 fi
-              done < worker_logs.json
+              done
             fi
           else
             echo "⚠️  No wrangler tail logs captured"
