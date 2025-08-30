@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.6...v0.5.0) (2025-08-30)
+
+
+### Features
+
+* comprehensive performance and resilience improvements with log collection ([2c68d74](https://github.com/dseeker/mcp-workflowy-remote/commit/2c68d74a2ade1a515bdd648c23086fe6977a70de))
+
 ## [0.4.6](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.5...v0.4.6) (2025-08-30)
 
 ## [0.4.5](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.4...v0.4.5) (2025-08-30)
