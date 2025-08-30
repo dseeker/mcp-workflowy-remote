@@ -353,6 +353,22 @@ export default {
       });
     }
 
+    // Temporary debug endpoint to check API key configuration
+    if (url.pathname === '/debug-keys') {
+      const allowedKeys = env.ALLOWED_API_KEYS?.split(',') || [];
+      return new Response(JSON.stringify({
+        hasApiKeys: !!env.ALLOWED_API_KEYS,
+        keyCount: allowedKeys.length,
+        firstKeyLength: allowedKeys.length > 0 ? allowedKeys[0]?.trim()?.length : 0,
+        environment: config.getEnvironment()
+      }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
     // MCP endpoint - implements MCP HTTP transport protocol
     if (url.pathname === '/mcp') {
       // Validate authentication for MCP endpoint
