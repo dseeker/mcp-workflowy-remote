@@ -1,3 +1,10 @@
+## [0.7.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.7.2...v0.7.3) (2025-08-30)
+
+
+### Performance Improvements
+
+* optimize post-deployment workflow for faster execution ([f23db29](https://github.com/dseeker/mcp-workflowy-remote/commit/f23db29b3945728d6fe5c5783d2d5b5dbd4a4979))
+
 ## [0.7.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.7.1...v0.7.2) (2025-08-30)
 
 
