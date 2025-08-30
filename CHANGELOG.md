@@ -1,3 +1,19 @@
+# [0.4.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.3.0...v0.4.0) (2025-08-30)
+
+
+### Bug Fixes
+
+* correct preview deployment to use worker versions instead of separate workers ([5f73113](https://github.com/dseeker/mcp-workflowy-remote/commit/5f73113012ef578ce0af47e82bb4734701f1241a))
+* remove secret upload from preview deployment ([a0a96eb](https://github.com/dseeker/mcp-workflowy-remote/commit/a0a96eb5d1849f33d2eeaacdc71f9f5a03d8f218))
+* upload secrets in preview deployment workflow ([6706e8a](https://github.com/dseeker/mcp-workflowy-remote/commit/6706e8aba47f22c734019ea3d60d1818ea8d6617))
+* use clean branch prefix for preview URLs ([e505858](https://github.com/dseeker/mcp-workflowy-remote/commit/e50585847c19bfbf06b17ee7e3d7110d9d3a1d75))
+
+
+### Features
+
+* add persistent preview alias for stable preview URL ([665f45e](https://github.com/dseeker/mcp-workflowy-remote/commit/665f45e2228607c4334b44331adfeadbdfd5a48b))
+* implement Phase 0 critical missing operations ([875a88d](https://github.com/dseeker/mcp-workflowy-remote/commit/875a88db0254e236d83e4f07b018e5d78d377a79))
+
 # [0.3.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.2.3...v0.3.0) (2025-08-29)
 
 
