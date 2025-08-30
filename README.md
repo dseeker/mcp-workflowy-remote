@@ -143,40 +143,41 @@ curl https://your-worker-url.workers.dev/tools \
 
 ### Deployment Environments
 
-The server supports two deployment environments with automatic branch-based deployment:
+The server supports production deployment with preview versions for testing:
 
-#### **Production Environment**
+#### **Production Deployment**
 - **URL**: `https://mcp-workflowy-remote.<subdomain>.workers.dev`
 - **Trigger**: Push to `main` branch or manual deployment
 - **Configuration**: Maximum security, optimized performance, production rate limits
 - **API Keys**: Use production `ALLOWED_API_KEYS`
 
-#### **Preview Environment**  
-- **URL**: `https://mcp-workflowy-remote-preview.<subdomain>.workers.dev`
+#### **Preview Versions**  
+- **Persistent URL**: `https://preview-mcp-workflowy-remote.<subdomain>.workers.dev` (always latest preview)
+- **Version-specific URL**: `https://<version-id>-mcp-workflowy-remote.<subdomain>.workers.dev`
+- **Pull Request URLs**: `https://pr<number>-mcp-workflowy-remote.<subdomain>.workers.dev`
 - **Trigger**: Push to `preview` branch or pull requests to `main`
-- **Configuration**: Debug enabled, relaxed CORS, higher rate limits for testing
-- **API Keys**: Use preview `ALLOWED_API_KEYS_PREVIEW`
+- **Configuration**: Same worker, different version for testing new features  
+- **API Keys**: Uses same production `ALLOWED_API_KEYS` (same worker, just different version)
 
-#### **Branch-based Deployment**
+#### **Version-based Workflow**
 ```bash
-# Automatic deployments
-git push origin main      # → Production deployment
-git push origin preview   # → Preview deployment
+# Production deployment
+git push origin main      # → Updates production worker
 
-# Pull request previews
-# Create PR to main        # → Automatic preview deployment
+# Preview versions (doesn't affect production)
+git push origin preview   # → Creates new preview version
+# Create PR to main        # → Creates preview version for PR
 
-# Manual deployments
+# Manual deployments  
 npm run deploy            # → Production
-npm run deploy:preview    # → Preview
+wrangler versions upload --tag preview --preview-alias preview  # → Create preview version with persistent alias
 ```
 
-### Environment-Specific Behavior
+### Preview vs Production
 
-The server automatically adapts its behavior based on the detected environment:
-
-- **Preview**: Debug enabled, permissive CORS, higher rate limits (100/min), legacy REST enabled
-- **Production**: Maximum security, strict CORS, production rate limits (60/min), legacy REST disabled
+- **Preview Versions**: Test new features without affecting production users
+- **Production**: Live worker serving real users
+- **No Separate Workers**: Uses Cloudflare's versioned preview URLs on the same worker
 
 ### Available Tools
 
@@ -187,6 +188,9 @@ This MCP server provides the following tools to interact with your Workflowy:
 3. **create_node** - Create a new node in your Workflowy
 4. **update_node** - Modify an existing node's text or description
 5. **toggle_complete** - Mark a node as complete or incomplete
+6. **delete_node** - Delete a node from your Workflowy
+7. **move_node** - Move a node to a different parent with optional priority control
+8. **get_node_by_id** - Get a single node by its ID with full details and filtering options
 
 ### Enhanced List & Search Features
 
@@ -834,15 +838,30 @@ claude mcp add --transport http workflowy-remote https://your-worker.workers.dev
    - `nodeId` (required): Node ID
    - `completed` (required): "true" or "false"
 
+6. **delete_node** - Delete a node
+   - `nodeId` (required): Node ID to delete
+
+7. **move_node** - Move a node to different parent with priority control
+   - `nodeId` (required): Node ID to move
+   - `newParentId` (required): New parent node ID
+   - `priority` (optional): Priority/position within the new parent (0 = first position)
+
+8. **get_node_by_id** - Get single node by ID with full details and filtering
+   - `nodeId` (required): Node ID to retrieve
+   - `maxDepth` (optional): Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)
+   - `includeFields` (optional): Fields to include in response. Available: id, name, note, isCompleted (default: all)
+   - `preview` (optional): Truncate content fields (name, note) to specified number of characters
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite ensuring reliability and full coverage of advanced search parameters.
 
 **Quick Stats:**
-- ✅ **22 unit tests** with **59+ assertions**
-- ✅ **100% parameter coverage** for advanced search features (`limit`, `maxDepth`, `includeFields`)
+- ✅ **55 unit tests** with **223+ assertions** 
+- ✅ **100% parameter coverage** for advanced search features (`limit`, `maxDepth`, `includeFields`, `preview`)
 - ✅ **4-level deep hierarchy testing** with realistic mock data
-- ✅ **Complete error scenario coverage** for all operations
+- ✅ **Complete error scenario coverage** for all 8 operations including new critical operations (delete_node, move_node, get_node_by_id)
+- ✅ **Persistent preview alias** for stable testing URL with updated API keys
 
 **Run Tests:**
 ```bash

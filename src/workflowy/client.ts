@@ -175,7 +175,7 @@ class WorkflowyClient {
     async updateNode(nodeId: string, name?: string, description?: string, username?: string, password?: string) {
         const { wf } = await this.createAuthenticatedClient(username, password);
         const doc = await wf.getDocument();
-        const node = doc.root.items.find(item => item.id === nodeId);
+        const node = this.findNodeById(doc.root.items, nodeId);
         if (!node) {
             throw new Error(`Node with ID ${nodeId} not found.`);
         }
@@ -198,7 +198,7 @@ class WorkflowyClient {
     async deleteNode(nodeId: string, username?: string, password?: string) {
         const { wf } = await this.createAuthenticatedClient(username, password);
         const doc = await wf.getDocument();
-        const node = doc.root.items.find(item => item.id === nodeId);
+        const node = this.findNodeById(doc.root.items, nodeId);
         if (!node) {
             throw new Error(`Node with ID ${nodeId} not found.`);
         }
@@ -216,7 +216,7 @@ class WorkflowyClient {
     async toggleComplete(nodeId: string, completed: boolean, username?: string, password?: string) {
         const { wf } = await this.createAuthenticatedClient(username, password);
         const doc = await wf.getDocument();
-        const node = doc.root.items.find(item => item.id === nodeId);
+        const node = this.findNodeById(doc.root.items, nodeId);
         if (!node) {
             throw new Error(`Node with ID ${nodeId} not found.`);
         }
@@ -231,6 +231,70 @@ class WorkflowyClient {
             // Saves the changes if there are any
             await doc.save();
         }
+    }
+
+    /**
+     * Move a node to a different parent with optional priority
+     */
+    async moveNode(nodeId: string, newParentId: string, priority?: number, username?: string, password?: string) {
+        const { wf } = await this.createAuthenticatedClient(username, password);
+        const doc = await wf.getDocument();
+        
+        // Find the node to move
+        const node = this.findNodeById(doc.root.items, nodeId);
+        if (!node) {
+            throw new Error(`Node with ID ${nodeId} not found.`);
+        }
+
+        // Find the new parent
+        const newParent = this.findNodeById(doc.root.items, newParentId);
+        if (!newParent) {
+            throw new Error(`Target parent node with ID ${newParentId} not found.`);
+        }
+
+        // Move the node using the Workflowy API
+        await node.move(newParent, priority);
+
+        if (doc.isDirty()) {
+            // Saves the changes if there are any
+            await doc.save();
+        }
+    }
+
+    /**
+     * Get a single node by its ID
+     */
+    async getNodeById(nodeId: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
+        const { wf } = await this.createAuthenticatedClient(username, password);
+        const doc = await wf.getDocument();
+        
+        // Find the node
+        const node = this.findNodeById(doc.root.items, nodeId);
+        if (!node) {
+            throw new Error(`Node with ID ${nodeId} not found.`);
+        }
+
+        // Convert to JSON and apply filtering
+        const nodeJson = node.toJson();
+        return this.createFilteredNode(nodeJson, maxDepth, includeFields, 0, previewLength);
+    }
+
+    /**
+     * Helper method to recursively find a node by ID
+     */
+    private findNodeById(items: any[], nodeId: string): any {
+        for (const item of items) {
+            if (item.id === nodeId) {
+                return item;
+            }
+            if (item.items && item.items.length > 0) {
+                const found = this.findNodeById(item.items, nodeId);
+                if (found) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 }
 

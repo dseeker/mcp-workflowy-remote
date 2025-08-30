@@ -116,6 +116,73 @@ const createTestTools = (mockClient: any) => {
           };
         }
       }
+    },
+
+    delete_node: {
+      handler: async ({ nodeId, username, password }: 
+        { nodeId: string, username?: string, password?: string }) => {
+        try {
+          await mockClient.deleteNode(nodeId, username, password);
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully deleted node ${nodeId}`
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error deleting node: ${error.message}`
+            }]
+          };
+        }
+      }
+    },
+
+    move_node: {
+      handler: async ({ nodeId, newParentId, priority, username, password }: 
+        { nodeId: string, newParentId: string, priority?: number, username?: string, password?: string }) => {
+        try {
+          await mockClient.moveNode(nodeId, newParentId, priority, username, password);
+          const priorityText = priority !== undefined ? ` at position ${priority}` : '';
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully moved node ${nodeId} to parent ${newParentId}${priorityText}`
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error moving node: ${error.message}`
+            }]
+          };
+        }
+      }
+    },
+
+    get_node_by_id: {
+      handler: async ({ nodeId, maxDepth, includeFields, preview, username, password }: 
+        { nodeId: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
+        try {
+          const node = await mockClient.getNodeById(nodeId, username, password, maxDepth, includeFields, preview);
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify(node, null, 2)
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error retrieving node: ${error.message}`
+            }]
+          };
+        }
+      }
     }
   };
 };
@@ -218,6 +285,47 @@ const createMockClient = (scenario: 'success' | 'error' | 'empty' = 'success') =
     toggleComplete: async (nodeId: string, completed: boolean) => {
       if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
       return { success: true, nodeId, completed };
+    },
+
+    deleteNode: async (nodeId: string, username?: string, password?: string) => {
+      if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
+      return { success: true, nodeId };
+    },
+
+    moveNode: async (nodeId: string, newParentId: string, priority?: number, username?: string, password?: string) => {
+      if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
+      return { success: true, nodeId, newParentId, priority };
+    },
+
+    getNodeById: async (nodeId: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], preview?: number) => {
+      if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
+      if (scenario === 'empty') return null;
+      
+      // Return a specific node from mock data based on nodeId
+      const mockNode = {
+        id: nodeId,
+        name: `Node ${nodeId}`,
+        note: `This is a note for node ${nodeId}`,
+        isCompleted: false,
+        items: [
+          {
+            id: `${nodeId}-child-1`,
+            name: `Child 1 of ${nodeId}`,
+            note: "Child note",
+            isCompleted: true,
+            items: []
+          },
+          {
+            id: `${nodeId}-child-2`, 
+            name: `Child 2 of ${nodeId}`,
+            note: "Another child note",
+            isCompleted: false,
+            items: []
+          }
+        ]
+      };
+      
+      return applyFiltering(mockNode, maxDepth, includeFields, preview);
     }
   };
 };
@@ -824,6 +932,195 @@ describe('Workflowy MCP Tools', () => {
       });
 
       expect(result.content[0].text).toContain('Error toggling completion status');
+      expect(result.content[0].text).toContain('Node not found');
+    });
+  });
+
+  describe('delete_node', () => {
+    it('should delete a node successfully', async () => {
+      const result = await tools.delete_node.handler({
+        nodeId: 'node-123',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully deleted node node-123');
+    });
+
+    it('should handle deletion errors', async () => {
+      const errorClient = createMockClient('error');
+      const errorTools = createTestTools(errorClient);
+      
+      const result = await errorTools.delete_node.handler({
+        nodeId: 'invalid-node',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Error deleting node');
+      expect(result.content[0].text).toContain('Node not found');
+    });
+  });
+
+  describe('move_node', () => {
+    it('should move a node to a new parent successfully', async () => {
+      const result = await tools.move_node.handler({
+        nodeId: 'node-123',
+        newParentId: 'parent-456',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully moved node node-123 to parent parent-456');
+    });
+
+    it('should move a node with priority', async () => {
+      const result = await tools.move_node.handler({
+        nodeId: 'node-123',
+        newParentId: 'parent-456',
+        priority: 0,
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully moved node node-123 to parent parent-456 at position 0');
+    });
+
+    it('should handle move errors', async () => {
+      const errorClient = createMockClient('error');
+      const errorTools = createTestTools(errorClient);
+      
+      const result = await errorTools.move_node.handler({
+        nodeId: 'invalid-node',
+        newParentId: 'parent-456',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Error moving node');
+      expect(result.content[0].text).toContain('Node not found');
+    });
+  });
+
+  describe('get_node_by_id', () => {
+    it('should retrieve a node by ID with default parameters', async () => {
+      const result = await tools.get_node_by_id.handler({
+        nodeId: 'test-node-123',
+        ...testCredentials
+      });
+
+      expect(result.content).toBeDefined();
+      expect(result.content[0].type).toBe('text');
+      
+      const parsedContent = JSON.parse(result.content[0].text);
+      expect(parsedContent.id).toBe('test-node-123');
+      expect(parsedContent.name).toContain('Node test-node-123');
+      expect(parsedContent.note).toContain('This is a note for node test-node-123');
+      expect(parsedContent.isCompleted).toBe(false);
+    });
+
+    it('should respect maxDepth=0 (no children)', async () => {
+      const result = await tools.get_node_by_id.handler({
+        nodeId: 'test-node-123',
+        maxDepth: 0,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      expect(parsedContent.items).toHaveLength(0); // Should have no children
+    });
+
+    it('should respect maxDepth=1 (include first level children)', async () => {
+      const result = await tools.get_node_by_id.handler({
+        nodeId: 'test-node-123',
+        maxDepth: 1,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      expect(parsedContent.items.length).toBeGreaterThan(0); // Should have children
+      expect(parsedContent.items[0].name).toContain('Child 1');
+      expect(parsedContent.items[1].name).toContain('Child 2');
+      
+      // Children should not have their own children (maxDepth=1)
+      expect(parsedContent.items[0].items).toHaveLength(0);
+      expect(parsedContent.items[1].items).toHaveLength(0);
+    });
+
+    it('should respect includeFields parameter', async () => {
+      const result = await tools.get_node_by_id.handler({
+        nodeId: 'test-node-123',
+        includeFields: ['id', 'name'],
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      
+      // Should have requested fields
+      expect(parsedContent.id).toBeDefined();
+      expect(parsedContent.name).toBeDefined();
+      expect(parsedContent.items).toBeDefined(); // Always included
+      
+      // Should NOT have excluded fields
+      expect(parsedContent.note).toBeUndefined();
+      expect(parsedContent.isCompleted).toBeUndefined();
+    });
+
+    it('should truncate content with preview parameter', async () => {
+      const result = await tools.get_node_by_id.handler({
+        nodeId: 'test-node-123',
+        includeFields: ['id', 'name', 'note'],
+        preview: 10, // Truncate to 10 characters
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      
+      // Names longer than 10 chars should be truncated with '...'
+      if (parsedContent.name && parsedContent.name.length > 10) {
+        expect(parsedContent.name).toEndWith('...');
+        expect(parsedContent.name.length).toBeLessThanOrEqual(13); // 10 chars + '...'
+      }
+      
+      // Notes longer than 10 chars should be truncated with '...'
+      if (parsedContent.note && parsedContent.note.length > 10) {
+        expect(parsedContent.note).toEndWith('...');
+        expect(parsedContent.note.length).toBeLessThanOrEqual(13); // 10 chars + '...'
+      }
+    });
+
+    it('should combine all parameters correctly', async () => {
+      const result = await tools.get_node_by_id.handler({
+        nodeId: 'test-node-123',
+        maxDepth: 1,
+        includeFields: ['id', 'name'],
+        preview: 15,
+        ...testCredentials
+      });
+
+      const parsedContent = JSON.parse(result.content[0].text);
+      
+      // Should respect field filtering
+      expect(parsedContent.id).toBeDefined();
+      expect(parsedContent.name).toBeDefined();
+      expect(parsedContent.note).toBeUndefined();
+      expect(parsedContent.isCompleted).toBeUndefined();
+      
+      // Should respect maxDepth
+      expect(parsedContent.items.length).toBeGreaterThan(0);
+      expect(parsedContent.items[0].items).toHaveLength(0);
+      
+      // Should respect preview truncation
+      if (parsedContent.name && parsedContent.name.length > 15) {
+        expect(parsedContent.name).toEndWith('...');
+      }
+    });
+
+    it('should handle node not found errors', async () => {
+      const errorClient = createMockClient('error');
+      const errorTools = createTestTools(errorClient);
+      
+      const result = await errorTools.get_node_by_id.handler({
+        nodeId: 'invalid-node',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Error retrieving node');
       expect(result.content[0].text).toContain('Node not found');
     });
   });
