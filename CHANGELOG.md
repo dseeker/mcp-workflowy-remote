@@ -1,3 +1,10 @@
+## [0.4.4](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.3...v0.4.4) (2025-08-30)
+
+
+### Bug Fixes
+
+* pull semantic-release changes before production deployment ([e5d6094](https://github.com/dseeker/mcp-workflowy-remote/commit/e5d60944f866f8e3cc35a4f3b38248d1fd2d9cda))
+
 ## [0.4.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.2...v0.4.3) (2025-08-30)
 
 
