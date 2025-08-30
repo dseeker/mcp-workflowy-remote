@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.5.4...v0.6.0) (2025-08-30)
+
+
+### Features
+
+* enhance worker log collection with real-time output ([0b3dae7](https://github.com/dseeker/mcp-workflowy-remote/commit/0b3dae7110380200d5e7bd823fbc8cfeece5ca08))
+
 ## [0.5.4](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.5.3...v0.5.4) (2025-08-30)
 
 
