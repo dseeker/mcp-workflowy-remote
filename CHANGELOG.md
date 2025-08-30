@@ -1,3 +1,10 @@
+## [0.7.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.7.0...v0.7.1) (2025-08-30)
+
+
+### Bug Fixes
+
+* resolve deployment issues and enhance log collection ([b77e58f](https://github.com/dseeker/mcp-workflowy-remote/commit/b77e58f3045bb2704b523fd3e4f944d91605504b))
+
 # [0.7.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.6.1...v0.7.0) (2025-08-30)
 
 
