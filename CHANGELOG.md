@@ -1,3 +1,10 @@
+## [0.5.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.5.1...v0.5.2) (2025-08-30)
+
+
+### Bug Fixes
+
+* remove global scope timer from RequestDeduplicator ([39890ac](https://github.com/dseeker/mcp-workflowy-remote/commit/39890ac218c9fc696536af98b88e65f0edbab58e))
+
 ## [0.5.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.5.0...v0.5.1) (2025-08-30)
 
 
