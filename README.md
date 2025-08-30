@@ -89,6 +89,7 @@ npm run test:coverage       # Coverage report
 | **[Deployment Guide](docs/DEPLOYMENT.md)** | Deploy your own instance to Cloudflare Workers |
 | **[API Reference](docs/API.md)** | Complete tool documentation and examples |
 | **[Architecture](docs/ARCHITECTURE.md)** | System architecture and flow diagrams |
+| **[Performance & Resilience](docs/PERFORMANCE.md)** | Caching, retry logic, error handling, and optimization features |
 | **[Troubleshooting](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
 | **[Testing Guide](README-TESTING.md)** | Test patterns and mock data structure |
 | **[ADR Documentation](adr/)** | Architecture Decision Records for feature development |
@@ -112,6 +113,10 @@ npm run dev:worker         # Start Cloudflare Worker in dev mode
 # Deployment
 npm run deploy             # Deploy to production
 npm run dry-run            # Test deployment
+
+# Log Collection & Monitoring
+./scripts/collect-logs.sh   # Collect worker logs (Linux/Mac)
+./scripts/collect-logs.bat  # Collect worker logs (Windows)
 ```
 
 ## 🏗️ Deploy Your Own
