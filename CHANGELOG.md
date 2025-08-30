@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.6.1...v0.7.0) (2025-08-30)
+
+
+### Features
+
+* optimize worker log output for GitHub Actions readability ([1afb939](https://github.com/dseeker/mcp-workflowy-remote/commit/1afb9395c8d4fcddbb4775033fde2345da39b509))
+
 ## [0.6.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.6.0...v0.6.1) (2025-08-30)
 
 
