@@ -87,14 +87,10 @@ jobs:
       - name: Build Worker
         run: npm run build:worker
 
-      - name: Upload secrets and deploy to Production
+      - name: Deploy to Production
         id: deploy
         run: |
-          # Upload secrets to production environment (default)
-          echo "🔑 Uploading secrets to production..."
-          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk
-          
-          # Deploy to production
+          # Deploy to production first
           VERSION="${{ needs.version.outputs.version || 'dev' }}"
           echo "🚀 Deploying v$VERSION to production..."
           DEPLOY_OUTPUT=$(npx wrangler deploy 2>&1)
@@ -104,6 +100,11 @@ jobs:
           WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[a-zA-Z0-9.-]*\.workers\.dev' | head -1)
           echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
           echo "✅ Deployed to production: $WORKER_URL"
+          
+          # Upload secrets after deployment
+          echo "🔑 Uploading secrets to production..."
+          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk
+          echo "✅ Secrets uploaded successfully"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
