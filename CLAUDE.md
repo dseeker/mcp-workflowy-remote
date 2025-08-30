@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an MCP (Model Context Protocol) server for Workflowy integration, providing both local server and Cloudflare Workers remote deployment capabilities. The server allows AI assistants to interact with Workflowy accounts programmatically.
 
+## Documentation Structure
+
+The project documentation is organized as follows:
+- **README.md** - Overview, quick start, and feature highlights
+- **docs/INSTALLATION.md** - Detailed setup instructions for local and remote servers
+- **docs/DEPLOYMENT.md** - Deploy your own instance to Cloudflare Workers  
+- **docs/API.md** - Complete tool documentation and examples
+- **docs/ARCHITECTURE.md** - System architecture and flow diagrams
+- **docs/TROUBLESHOOTING.md** - Common issues and solutions
+- **README-TESTING.md** - Test patterns and mock data structure
+
 ## Common Development Commands
 
 ### Building
