@@ -91,6 +91,7 @@ npm run test:coverage       # Coverage report
 | **[Architecture](docs/ARCHITECTURE.md)** | System architecture and flow diagrams |
 | **[Troubleshooting](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
 | **[Testing Guide](README-TESTING.md)** | Test patterns and mock data structure |
+| **[ADR Documentation](adr/)** | Architecture Decision Records for feature development |
 
 ## 🔧 Development Commands
 
