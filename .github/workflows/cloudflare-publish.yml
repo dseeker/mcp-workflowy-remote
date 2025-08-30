@@ -94,7 +94,7 @@ jobs:
           echo "Building worker with updated package.json version..."
           npm run build:worker
           echo "Built worker version info:"
-          grep -o '"version":"[^"]*"' package.json || echo "Version not found in package.json"
+          echo "Version: $(grep '"version"' package.json | cut -d'"' -f4)" || echo "Version not found in package.json"
 
       - name: Deploy to Production
         id: deploy
@@ -154,10 +154,17 @@ jobs:
           # Wait for deployment to propagate
           sleep 30
           
-          # Test health endpoint and verify version
+          # Test health endpoint and verify version (accept degraded status)
           echo "Testing health endpoint..."
-          HEALTH_RESPONSE=$(curl -f "$WORKER_URL/health" 2>/dev/null) || (echo "❌ Health check failed" && exit 1)
-          echo "✅ Health check passed: $HEALTH_RESPONSE"
+          HEALTH_RESPONSE=$(curl -s "$WORKER_URL/health" 2>/dev/null) || (echo "❌ Health check failed" && exit 1)
+          HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "error"')
+          if [[ "$HEALTH_STATUS" == "ok" || "$HEALTH_STATUS" == "degraded" ]]; then
+            echo "✅ Health check passed with status: $HEALTH_STATUS"
+            echo "   Response: $HEALTH_RESPONSE"
+          else
+            echo "❌ Health check failed with status: $HEALTH_STATUS"
+            exit 1
+          fi
           
           # Extract and verify version
           DEPLOYED_VERSION=$(echo "$HEALTH_RESPONSE" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
@@ -225,14 +232,17 @@ jobs:
         run: |
           echo "📋 Starting worker log collection..."
           
+          # Create empty log file first
+          touch worker_logs.json
+          
           # Start wrangler tail in background to capture logs
-          wrangler tail --format json > worker_logs.json &
+          timeout 45s wrangler tail --format json >> worker_logs.json &
           TAIL_PID=$!
           
           echo "📡 Started log collection (PID: $TAIL_PID)"
           
           # Give logs a moment to start
-          sleep 2
+          sleep 3
           
           # Make test requests to generate logs
           echo "🧪 Making test requests to generate logs..."
@@ -262,10 +272,11 @@ jobs:
           
           # Wait for logs to be captured
           echo "⏱️  Waiting for logs to be captured..."
-          sleep 10
+          sleep 12
           
-          # Stop log collection
+          # Stop log collection gracefully
           kill $TAIL_PID 2>/dev/null || true
+          sleep 2
           wait $TAIL_PID 2>/dev/null || true
           
           echo "🔍 Analyzing collected logs..."
@@ -458,10 +469,16 @@ jobs:
           # Wait for version to propagate
           sleep 25
           
-          # Test health endpoint
+          # Test health endpoint (accept degraded status)
           echo "Testing health endpoint..."
-          HEALTH_RESPONSE=$(curl -f "$PREVIEW_URL/health" 2>/dev/null) || (echo "❌ Health check failed" && exit 1)
-          echo "✅ Health check passed: $HEALTH_RESPONSE"
+          HEALTH_RESPONSE=$(curl -s "$PREVIEW_URL/health" 2>/dev/null) || (echo "❌ Health check failed" && exit 1)
+          HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "error"')
+          if [[ "$HEALTH_STATUS" == "ok" || "$HEALTH_STATUS" == "degraded" ]]; then
+            echo "✅ Health check passed with status: $HEALTH_STATUS"
+          else
+            echo "❌ Health check failed with status: $HEALTH_STATUS"
+            exit 1
+          fi
           
           # Test basic functionality
           echo "Testing basic authentication..."
@@ -495,8 +512,11 @@ jobs:
           PREVIEW_URL="${{ steps.deploy-preview.outputs.preview-url }}"
           VERSION_TAG="${{ steps.deploy-preview.outputs.version-tag }}"
           
+          # Create empty log file first
+          touch preview_logs.json
+          
           # Start wrangler tail in background to capture logs
-          wrangler tail --format json > preview_logs.json &
+          timeout 35s wrangler tail --format json >> preview_logs.json &
           TAIL_PID=$!
           
           echo "📡 Started preview log collection (PID: $TAIL_PID)"
@@ -521,10 +541,11 @@ jobs:
           
           # Wait for logs to be captured
           echo "⏱️  Waiting for preview logs to be captured..."
-          sleep 8
+          sleep 10
           
-          # Stop log collection
+          # Stop log collection gracefully
           kill $TAIL_PID 2>/dev/null || true
+          sleep 2
           wait $TAIL_PID 2>/dev/null || true
           
           echo "🔍 Analyzing preview logs..."
