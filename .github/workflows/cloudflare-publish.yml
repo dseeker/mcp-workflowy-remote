@@ -229,15 +229,27 @@ jobs:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
       - name: Collect Worker Logs
+        continue-on-error: true
         run: |
           echo "📋 Starting worker log collection..."
           
           # Create empty log file first
           touch worker_logs.json
           
+          # Verify wrangler is available
+          if ! command -v npx >/dev/null 2>&1; then
+            echo "⚠️  npx not available, skipping log collection"
+            echo "Log collection requires npx to be in PATH"
+            exit 0
+          fi
+          
           # Start wrangler tail in background to capture logs
-          timeout 45s wrangler tail --format json >> worker_logs.json &
-          TAIL_PID=$!
+          if timeout 45s npx wrangler tail --format json >> worker_logs.json & then
+            TAIL_PID=$!
+          else
+            echo "⚠️  Failed to start wrangler tail, skipping log collection"
+            exit 0
+          fi
           
           echo "📡 Started log collection (PID: $TAIL_PID)"
           
@@ -506,6 +518,7 @@ jobs:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
       - name: Collect Preview Worker Logs
+        continue-on-error: true
         run: |
           echo "📋 Starting preview worker log collection..."
           
@@ -515,9 +528,19 @@ jobs:
           # Create empty log file first
           touch preview_logs.json
           
+          # Verify wrangler is available
+          if ! command -v npx >/dev/null 2>&1; then
+            echo "⚠️  npx not available, skipping preview log collection"
+            exit 0
+          fi
+          
           # Start wrangler tail in background to capture logs
-          timeout 35s wrangler tail --format json >> preview_logs.json &
-          TAIL_PID=$!
+          if timeout 35s npx wrangler tail --format json >> preview_logs.json & then
+            TAIL_PID=$!
+          else
+            echo "⚠️  Failed to start wrangler tail, skipping preview log collection"
+            exit 0
+          fi
           
           echo "📡 Started preview log collection (PID: $TAIL_PID)"
           
