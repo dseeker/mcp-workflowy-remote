@@ -12,13 +12,11 @@ export interface DeduplicationEntry {
 export class RequestDeduplicator {
   private pendingRequests = new Map<string, DeduplicationEntry>();
   private readonly maxAge = 30000; // 30 seconds max age for pending requests
-  private readonly cleanupInterval = 10000; // Cleanup every 10 seconds
+  private lastCleanup = 0;
+  private readonly cleanupThreshold = 10000; // Cleanup every 10 seconds
 
   constructor() {
-    // Cleanup expired entries periodically (only in runtime environments)
-    if (typeof setInterval !== 'undefined') {
-      setInterval(() => this.cleanup(), this.cleanupInterval);
-    }
+    // No global timers - cleanup will happen on-demand during requests
   }
 
   /**
@@ -82,6 +80,9 @@ export class RequestDeduplicator {
     credentials: { username?: string } | undefined,
     executor: () => Promise<T>
   ): Promise<T> {
+    // Perform cleanup if needed (on-demand)
+    this.cleanupIfNeeded();
+    
     // Skip deduplication if not applicable
     if (!this.shouldDeduplicate(method, params)) {
       return executor();
@@ -132,7 +133,7 @@ export class RequestDeduplicator {
   }
 
   /**
-   * Clean up expired entries
+   * Clean up expired entries (called on-demand)
    */
   private cleanup(): void {
     const now = Date.now();
@@ -150,6 +151,18 @@ export class RequestDeduplicator {
 
     if (expiredKeys.length > 0) {
       console.log(`Cleaned up ${expiredKeys.length} expired deduplication entries`);
+    }
+    
+    this.lastCleanup = now;
+  }
+  
+  /**
+   * Perform cleanup if enough time has passed since last cleanup
+   */
+  private cleanupIfNeeded(): void {
+    const now = Date.now();
+    if (now - this.lastCleanup > this.cleanupThreshold) {
+      this.cleanup();
     }
   }
 
