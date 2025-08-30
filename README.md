@@ -857,10 +857,11 @@ claude mcp add --transport http workflowy-remote https://your-worker.workers.dev
 The project includes a comprehensive test suite ensuring reliability and full coverage of advanced search parameters.
 
 **Quick Stats:**
-- ✅ **55 unit tests** with **223+ assertions**
+- ✅ **55 unit tests** with **223+ assertions** 
 - ✅ **100% parameter coverage** for advanced search features (`limit`, `maxDepth`, `includeFields`, `preview`)
 - ✅ **4-level deep hierarchy testing** with realistic mock data
 - ✅ **Complete error scenario coverage** for all 8 operations including new critical operations (delete_node, move_node, get_node_by_id)
+- ✅ **Persistent preview alias** for stable testing URL
 
 **Run Tests:**
 ```bash
