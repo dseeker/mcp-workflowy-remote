@@ -66,10 +66,15 @@ jobs:
     environment: production
 
     steps:
-      - name: Checkout
+      - name: Checkout (pull latest after semantic-release)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Pull the commit created by semantic-release
+          ref: main
+
+      - name: Pull latest changes from semantic-release
+        run: git pull origin main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -84,15 +89,12 @@ jobs:
         run: npm test || echo "No tests configured"
         continue-on-error: true
 
-      - name: Build Worker (if not built by semantic-release)
+      - name: Build Worker with updated version
         run: |
-          if [ ! -f "dist/worker.js" ]; then
-            echo "Building worker (not found in semantic-release output)..."
-            npm run build:worker
-          else
-            echo "Using worker built by semantic-release"
-            ls -la dist/
-          fi
+          echo "Building worker with updated package.json version..."
+          npm run build:worker
+          echo "Built worker version info:"
+          grep -o '"version":"[^"]*"' package.json || echo "Version not found in package.json"
 
       - name: Deploy to Production
         id: deploy
