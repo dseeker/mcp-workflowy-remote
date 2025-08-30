@@ -228,134 +228,163 @@ jobs:
         env:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
-      - name: Collect Worker Logs
+      - name: Collect Worker Logs with Real-time Output
         continue-on-error: true
         run: |
-          echo "📋 Starting worker log collection..."
+          echo "📋 Starting enhanced worker log collection..."
           
-          # Create empty log file first
-          touch worker_logs.json
+          # Create log files
+          touch worker_logs.json workflow_logs.txt
           
-          # Verify wrangler is available
-          if ! command -v npx >/dev/null 2>&1; then
-            echo "⚠️  npx not available, skipping log collection"
-            echo "Log collection requires npx to be in PATH"
-            exit 0
-          fi
+          # Extract first API key for testing
+          FIRST_API_KEY=$(echo "$ALLOWED_API_KEYS" | cut -d',' -f1)
           
-          # Start wrangler tail in background to capture logs
-          if timeout 45s npx wrangler tail --format json >> worker_logs.json & then
-            TAIL_PID=$!
-          else
-            echo "⚠️  Failed to start wrangler tail, skipping log collection"
-            exit 0
-          fi
+          echo "🧪 Making test requests to generate logs and capture output..."
+          echo "Worker URL: $WORKER_URL"
+          echo "Using API Key: ${FIRST_API_KEY:0:12}..."
+          echo ""
           
-          echo "📡 Started log collection (PID: $TAIL_PID)"
-          
-          # Give logs a moment to start
-          sleep 3
-          
-          # Make test requests to generate logs
-          echo "🧪 Making test requests to generate logs..."
-          
-          # Test health endpoint
-          echo "Testing health endpoint for logging..."
-          curl -s "$WORKER_URL/health" > /dev/null
-          
-          # Test tools endpoint with auth
-          echo "Testing authenticated tools endpoint..."
-          curl -s "$WORKER_URL/tools" -H "Authorization: Bearer $FIRST_API_KEY" > /dev/null
-          
-          # Test MCP endpoint with a simple request
-          echo "Testing MCP endpoint for logging..."
-          curl -s -X POST "$WORKER_URL/mcp" \
-            -H "Authorization: Bearer $FIRST_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc": "2.0", "id": "log-test", "method": "tools/list", "params": {}}' > /dev/null
-          
-          # Test an invalid endpoint to generate error logs
-          echo "Testing error handling logging..."
-          curl -s "$WORKER_URL/invalid-endpoint" > /dev/null
-          
-          # Test unauthorized request
-          echo "Testing unauthorized request logging..."
-          curl -s "$WORKER_URL/tools" > /dev/null
-          
-          # Wait for logs to be captured
-          echo "⏱️  Waiting for logs to be captured..."
-          sleep 12
-          
-          # Stop log collection gracefully
-          kill $TAIL_PID 2>/dev/null || true
-          sleep 2
-          wait $TAIL_PID 2>/dev/null || true
-          
-          echo "🔍 Analyzing collected logs..."
-          
-          # Check if we got any logs
-          if [ -f worker_logs.json ] && [ -s worker_logs.json ]; then
-            echo "✅ Logs collected successfully!"
+          # Function to make request and capture both response and timing
+          make_request() {
+            local url="$1"
+            local desc="$2"
+            local extra_args="$3"
             
-            # Parse and display key log metrics
-            echo "📊 Log Analysis:"
+            echo "🔄 $desc"
+            echo "   URL: $url"
             
-            # Count total log entries
-            LOG_COUNT=$(wc -l < worker_logs.json || echo "0")
-            echo "  • Total log entries: $LOG_COUNT"
+            local start_time=$(date +%s%N)
+            local response
+            local status_code
             
-            # Count by log level
-            if [ "$LOG_COUNT" -gt 0 ]; then
-              ERROR_COUNT=$(grep -c '"level":"ERROR"' worker_logs.json || echo "0")
-              WARN_COUNT=$(grep -c '"level":"WARN"' worker_logs.json || echo "0")
-              INFO_COUNT=$(grep -c '"level":"INFO"' worker_logs.json || echo "0")
-              DEBUG_COUNT=$(grep -c '"level":"DEBUG"' worker_logs.json || echo "0")
-              
-              echo "  • ERROR logs: $ERROR_COUNT"
-              echo "  • WARN logs: $WARN_COUNT"  
-              echo "  • INFO logs: $INFO_COUNT"
-              echo "  • DEBUG logs: $DEBUG_COUNT"
-              
-              # Show unique endpoints accessed
-              ENDPOINTS=$(grep -o '"endpoint":"[^"]*"' worker_logs.json | sort | uniq || echo "")
-              if [ -n "$ENDPOINTS" ]; then
-                echo "  • Endpoints accessed:"
-                echo "$ENDPOINTS" | sed 's/"endpoint":"/    - /' | sed 's/"$//'
-              fi
-              
-              # Check for performance metrics
-              PERF_LOGS=$(grep -c 'performanceMetric.*true' worker_logs.json || echo "0")
-              echo "  • Performance metrics logged: $PERF_LOGS"
-              
-              # Check for cache operations
-              CACHE_HITS=$(grep -c 'cacheOperation.*hit' worker_logs.json || echo "0")
-              CACHE_MISSES=$(grep -c 'cacheOperation.*miss' worker_logs.json || echo "0")
-              CACHE_SETS=$(grep -c 'cacheOperation.*set' worker_logs.json || echo "0")
-              echo "  • Cache hits: $CACHE_HITS"
-              echo "  • Cache misses: $CACHE_MISSES"
-              echo "  • Cache sets: $CACHE_SETS"
-              
-              # Show sample logs (first few entries)
-              echo "\n📝 Sample log entries:"
-              head -5 worker_logs.json | jq -r '. | "[" + .timestamp + "] " + .level + ": " + .message' 2>/dev/null || head -5 worker_logs.json
-              
-              # Check for any errors in our test requests
-              if [ "$ERROR_COUNT" -gt 0 ]; then
-                echo "\n⚠️  Error logs detected:"
-                grep '"level":"ERROR"' worker_logs.json | head -3 | jq -r '.message' 2>/dev/null || grep '"level":"ERROR"' worker_logs.json | head -3
-              fi
+            if [ -n "$extra_args" ]; then
+              response=$(eval "curl -w '%{http_code}' -s $extra_args '$url'")
+            else
+              response=$(curl -w '%{http_code}' -s "$url")
             fi
             
+            status_code="${response: -3}"
+            response_body="${response%???}"
+            local end_time=$(date +%s%N)
+            local duration=$(( (end_time - start_time) / 1000000 ))
+            
+            echo "   Status: $status_code (${duration}ms)"
+            echo "   Response: ${response_body:0:200}$([ ${#response_body} -gt 200 ] && echo '...')"
+            echo ""
+            
+            # Log this request info
+            echo "$(date -Iseconds) | $desc | $status_code | ${duration}ms | $url" >> workflow_logs.txt
+          }
+          
+          # Start wrangler tail in background with both file and stdout output
+          echo "📡 Starting wrangler tail (will timeout after 60s)..."
+          (
+            timeout 60s npx wrangler tail --format json 2>&1 | tee -a worker_logs.json
+          ) &
+          TAIL_PID=$!
+          
+          # Give wrangler tail time to initialize
+          sleep 5
+          
+          # Make test requests with detailed logging
+          make_request "$WORKER_URL/health" "Health check (no auth)"
+          sleep 2
+          
+          make_request "$WORKER_URL/" "Root endpoint info"
+          sleep 2
+          
+          make_request "$WORKER_URL/tools" "Tools endpoint (with auth)" "-H 'Authorization: Bearer $FIRST_API_KEY'"
+          sleep 2
+          
+          make_request "$WORKER_URL/tools" "Tools endpoint (no auth - should fail)"
+          sleep 2
+          
+          # MCP request
+          echo "🔄 Testing MCP endpoint with tools/list"
+          echo "   URL: $WORKER_URL/mcp"
+          mcp_start=$(date +%s%N)
+          mcp_response=$(curl -w '%{http_code}' -s -X POST "$WORKER_URL/mcp" \
+            -H "Authorization: Bearer $FIRST_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc": "2.0", "id": "log-test-1", "method": "tools/list", "params": {}}')
+          mcp_end=$(date +%s%N)
+          mcp_duration=$(( (mcp_end - mcp_start) / 1000000 ))
+          mcp_status="${mcp_response: -3}"
+          mcp_body="${mcp_response%???}"
+          echo "   Status: $mcp_status (${mcp_duration}ms)"
+          echo "   Response: ${mcp_body:0:300}$([ ${#mcp_body} -gt 300 ] && echo '...')"
+          echo ""
+          echo "$(date -Iseconds) | MCP tools/list | $mcp_status | ${mcp_duration}ms | $WORKER_URL/mcp" >> workflow_logs.txt
+          sleep 3
+          
+          # Another MCP request to trigger caching
+          echo "🔄 Testing MCP endpoint again (should hit cache)"
+          mcp2_start=$(date +%s%N)
+          mcp2_response=$(curl -w '%{http_code}' -s -X POST "$WORKER_URL/mcp" \
+            -H "Authorization: Bearer $FIRST_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc": "2.0", "id": "log-test-2", "method": "tools/list", "params": {}}')
+          mcp2_end=$(date +%s%N)
+          mcp2_duration=$(( (mcp2_end - mcp2_start) / 1000000 ))
+          mcp2_status="${mcp2_response: -3}"
+          echo "   Status: $mcp2_status (${mcp2_duration}ms) - Should be faster if cached"
+          echo ""
+          
+          # Test error handling
+          make_request "$WORKER_URL/nonexistent-endpoint" "Invalid endpoint (should 404)"
+          sleep 2
+          
+          # Wait for final logs
+          echo "⏱️  Waiting for final logs (10 seconds)..."
+          sleep 10
+          
+          # Stop log collection
+          echo "🛑 Stopping log collection..."
+          kill $TAIL_PID 2>/dev/null || true
+          wait $TAIL_PID 2>/dev/null || true
+          
+          echo ""
+          echo "📊 === LOG COLLECTION SUMMARY ==="
+          echo ""
+          
+          # Show what we collected
+          if [ -f worker_logs.json ] && [ -s worker_logs.json ]; then
+            LOG_COUNT=$(wc -l < worker_logs.json 2>/dev/null || echo "0")
+            echo "✅ Wrangler tail captured $LOG_COUNT log lines"
+            
+            echo ""
+            echo "📝 === CAPTURED WORKER LOGS ==="
+            echo ""
+            
+            # Show all captured logs with better formatting
+            if [ "$LOG_COUNT" -gt 0 ]; then
+              # Try to parse as JSON and format nicely
+              while IFS= read -r line; do
+                if [ -n "$line" ]; then
+                  # Try to parse as JSON
+                  if echo "$line" | jq -e . >/dev/null 2>&1; then
+                    echo "$line" | jq -r '[.timestamp // "no-time", .level // "INFO", .message // .] | join(" | ")' 2>/dev/null || echo "$line"
+                  else
+                    echo "RAW: $line"
+                  fi
+                fi
+              done < worker_logs.json
+            fi
           else
-            echo "⚠️  No logs collected - this might indicate:"
-            echo "  • Logs are not being generated"
-            echo "  • Log collection timed out"
-            echo "  • Worker is not receiving requests"
-            echo "  • Wrangler tail command failed"
+            echo "⚠️  No wrangler tail logs captured"
           fi
           
-          # Upload logs as artifact for later inspection
-          echo "📤 Uploading logs as build artifact..."
+          echo ""
+          echo "📋 === WORKFLOW REQUEST LOG ==="
+          echo ""
+          if [ -f workflow_logs.txt ] && [ -s workflow_logs.txt ]; then
+            cat workflow_logs.txt
+          else
+            echo "No workflow requests logged"
+          fi
+          
+          echo ""
+          echo "📤 Preparing artifacts..."
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
@@ -367,6 +396,7 @@ jobs:
           name: worker-logs-production-${{ github.run_number }}
           path: |
             worker_logs.json
+            workflow_logs.txt
             *.log
           retention-days: 7
 
