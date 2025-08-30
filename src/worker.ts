@@ -8,6 +8,10 @@ import { workflowyTools } from "./tools/workflowy.js";
 import { workflowyClient } from "./workflowy/client.js";
 import packageJson from "../package.json" assert { type: "json" };
 import ConfigManager from "./config.js";
+import { workerCache } from "./utils/cache.js";
+import { requestDeduplicator } from "./utils/deduplication.js";
+import { createLogger, generateRequestId } from "./utils/structured-logger.js";
+import { WorkflowyError, AuthenticationError, NetworkError, NotFoundError, OverloadError } from "./workflowy/client.js";
 
 // MCP JSON-RPC message types
 interface JsonRpcRequest {
@@ -109,8 +113,10 @@ class WorkflowyMCPServer {
     };
   }
 
-  // Handle MCP JSON-RPC messages
-  async handleJsonRpcRequest(request: JsonRpcRequest, env: any, headers?: Headers): Promise<JsonRpcResponse> {
+  // Handle MCP JSON-RPC messages with caching and deduplication
+  async handleJsonRpcRequest(request: JsonRpcRequest, env: any, headers?: Headers, logger?: any): Promise<JsonRpcResponse> {
+    const requestLogger = logger || createLogger(env);
+    
     try {
       switch (request.method) {
         case "initialize":
@@ -147,6 +153,7 @@ class WorkflowyMCPServer {
           const tool = this.tools[toolName];
           
           if (!tool) {
+            requestLogger.error(`Unknown tool requested: ${toolName}`);
             return {
               jsonrpc: "2.0",
               id: request.id,
@@ -157,15 +164,102 @@ class WorkflowyMCPServer {
             };
           }
 
-          // Validate and execute tool
+          // Validate and execute tool with caching and deduplication
           const validatedParams = tool.inputSchema.parse(toolArgs);
-          const result = await tool.handler(validatedParams, env, headers);
           
-          return {
-            jsonrpc: "2.0",
-            id: request.id,
-            result
-          };
+          const startTime = Date.now();
+          let cached = false;
+          let result;
+          
+          try {
+            // Extract credentials for cache/deduplication key
+            const credentials = this.extractCredentials(validatedParams, env, headers);
+            
+            // Try cache first if caching is enabled for this tool
+            if (workerCache.shouldCache(toolName, validatedParams)) {
+              const cachedResult = await workerCache.get(toolName, validatedParams, credentials);
+              if (cachedResult !== null) {
+                cached = true;
+                result = cachedResult;
+                requestLogger.cache('hit', `${toolName}:${JSON.stringify(validatedParams).substring(0, 50)}`);
+              }
+            }
+            
+            // If not cached, execute with deduplication
+            if (result === undefined) {
+              result = await requestDeduplicator.execute(
+                toolName,
+                validatedParams,
+                credentials,
+                async () => {
+                  const toolResult = await tool.handler(validatedParams, env, headers);
+                  
+                  // Cache the result if caching is enabled
+                  if (workerCache.shouldCache(toolName, validatedParams)) {
+                    const cacheConfig = workerCache.getCacheConfig(toolName, validatedParams);
+                    await workerCache.set(toolName, validatedParams, toolResult, cacheConfig, credentials);
+                    requestLogger.cache('set', `${toolName}:${JSON.stringify(validatedParams).substring(0, 50)}`);
+                  }
+                  
+                  return toolResult;
+                }
+              );
+            }
+            
+            const duration = Date.now() - startTime;
+            requestLogger.mcpOperation("tools/call", toolName, duration, cached, {
+              requestId: request.id,
+              paramsSize: JSON.stringify(validatedParams).length
+            });
+            
+            return {
+              jsonrpc: "2.0",
+              id: request.id,
+              result
+            };
+            
+          } catch (error: any) {
+            const duration = Date.now() - startTime;
+            requestLogger.error(`Tool execution failed: ${toolName}`, error, {
+              requestId: request.id,
+              duration,
+              toolName,
+              errorType: error.constructor.name
+            });
+            
+            // Enhanced error responses based on error type
+            let errorCode = -32603; // Internal error
+            let errorMessage = `Internal error: ${error.message}`;
+            
+            if (error instanceof AuthenticationError) {
+              errorCode = -32600; // Invalid request (auth issue)
+              errorMessage = `Authentication failed: ${error.message}`;
+            } else if (error instanceof NotFoundError) {
+              errorCode = -32602; // Invalid params
+              errorMessage = `Resource not found: ${error.message}`;
+            } else if (error instanceof OverloadError) {
+              errorCode = -32603; // Internal error
+              errorMessage = `Service temporarily unavailable: ${error.message}`;
+            } else if (error instanceof NetworkError) {
+              errorCode = -32603; // Internal error
+              errorMessage = `Network error: ${error.message}`;
+            }
+            
+            return {
+              jsonrpc: "2.0",
+              id: request.id,
+              error: {
+                code: errorCode,
+                message: errorMessage,
+                data: {
+                  type: error.constructor.name,
+                  retryable: error.retryable || false,
+                  overloaded: error.overloaded || false,
+                  ...(env.ENVIRONMENT !== 'production' && { stack: error.stack })
+                }
+              }
+            };
+          }
 
         default:
           return {
@@ -178,13 +272,21 @@ class WorkflowyMCPServer {
           };
       }
     } catch (error: any) {
+      requestLogger.error('JSON-RPC request processing failed', error, {
+        requestId: request.id,
+        method: request.method
+      });
+      
       return {
         jsonrpc: "2.0",
         id: request.id,
         error: {
           code: -32603,
           message: `Internal error: ${error.message}`,
-          data: error.stack
+          data: {
+            type: error.constructor.name,
+            ...(env.ENVIRONMENT !== 'production' && { stack: error.stack })
+          }
         }
       };
     }
@@ -290,21 +392,40 @@ export default {
   },
 
   async fetch(request: Request, env: any): Promise<Response> {
+    const requestId = generateRequestId();
+    const logger = createLogger(env).forRequest(requestId, request.method, new URL(request.url).pathname);
+    const startTime = Date.now();
+    
     const server = new WorkflowyMCPServer();
     const config = new ConfigManager(env);
     
-    // Validate API key for authenticated endpoints
+    logger.info('Request received', {
+      method: request.method,
+      url: request.url,
+      userAgent: request.headers.get('User-Agent'),
+      contentType: request.headers.get('Content-Type')
+    });
+    
+    // Validate API key for authenticated endpoints with logging
     const validateAuth = () => {
       const apiKey = request.headers.get('Authorization')?.replace('Bearer ', '') || null;
       if (!config.validateApiKey(apiKey)) {
+        logger.warn('Authentication failed', {
+          hasApiKey: !!apiKey,
+          apiKeyLength: apiKey?.length,
+          environment: config.getEnvironment()
+        });
+        
         return new Response(JSON.stringify({
           error: 'Unauthorized',
           message: 'Invalid or missing API key',
-          environment: config.getEnvironment()
+          environment: config.getEnvironment(),
+          requestId
         }), { 
           status: 401,
           headers: {
             'Content-Type': 'application/json',
+            'X-Request-ID': requestId,
             ...config.getCorsHeaders()
           }
         });
@@ -338,19 +459,62 @@ export default {
       });
     }
     
-    // Health check endpoint (unauthenticated)
+    // Health check endpoint with service status (unauthenticated)
     if (url.pathname === '/health') {
-      return new Response(JSON.stringify({ 
-        status: 'ok', 
-        server: server.name,
-        version: server.version,
-        protocol: server.protocolVersion
-      }), {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
+      try {
+        // Quick health check with minimal credentials (if available)
+        const healthCheck = await workflowyClient.checkServiceHealth(
+          env.WORKFLOWY_USERNAME, 
+          env.WORKFLOWY_PASSWORD
+        );
+        
+        const responseTime = Date.now() - startTime;
+        logger.info('Health check completed', {
+          available: healthCheck.available,
+          workflowyResponseTime: healthCheck.responseTime,
+          totalResponseTime: responseTime
+        });
+        
+        return new Response(JSON.stringify({ 
+          status: healthCheck.available ? 'ok' : 'degraded',
+          server: server.name,
+          version: server.version,
+          protocol: server.protocolVersion,
+          workflowy: {
+            available: healthCheck.available,
+            responseTime: healthCheck.responseTime,
+            error: healthCheck.error
+          },
+          environment: config.getEnvironment(),
+          requestId,
+          timestamp: new Date().toISOString()
+        }), {
+          status: healthCheck.available ? 200 : 503,
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Request-ID': requestId,
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      } catch (error: any) {
+        logger.error('Health check failed', error);
+        
+        return new Response(JSON.stringify({ 
+          status: 'error',
+          server: server.name,
+          version: server.version,
+          error: 'Health check failed',
+          requestId,
+          timestamp: new Date().toISOString()
+        }), {
+          status: 500,
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Request-ID': requestId,
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
     }
 
     // Temporary debug endpoint to check API key configuration
@@ -386,18 +550,26 @@ export default {
           for (const messageText of messages) {
             const message = JSON.parse(messageText);
             
-            // Handle JSON-RPC request
+            // Handle JSON-RPC request with logging
             if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
-              const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers);
+              const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers, logger);
               responses.push(response);
             }
           }
 
-          // Return responses as JSON
+          // Return responses as JSON with request tracking
+          const duration = Date.now() - startTime;
+          logger.performance('MCP batch request', duration, {
+            messageCount: messages.length,
+            responseCount: responses.length
+          });
+          
           if (responses.length === 1) {
             return new Response(JSON.stringify(responses[0]), {
               headers: { 
                 'Content-Type': 'application/json',
+                'X-Request-ID': requestId,
+                'X-Response-Time': duration.toString(),
                 'Access-Control-Allow-Origin': '*'
               }
             });
@@ -405,23 +577,30 @@ export default {
             return new Response(responses.map(r => JSON.stringify(r)).join('\n'), {
               headers: { 
                 'Content-Type': 'application/json',
+                'X-Request-ID': requestId,
+                'X-Response-Time': duration.toString(),
                 'Access-Control-Allow-Origin': '*'
               }
             });
           }
           
         } catch (error: any) {
+          const duration = Date.now() - startTime;
+          logger.error('MCP request parsing failed', error, { duration });
+          
           return new Response(JSON.stringify({
             jsonrpc: "2.0",
             id: null,
             error: {
               code: -32700,
               message: `Parse error: ${error.message}`
-            }
+            },
+            requestId
           }), {
             status: 400,
             headers: { 
               'Content-Type': 'application/json',
+              'X-Request-ID': requestId,
               'Access-Control-Allow-Origin': '*'
             }
           });
