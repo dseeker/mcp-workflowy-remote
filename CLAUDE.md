@@ -207,3 +207,4 @@ The project uses automated semantic versioning:
 - Conventional commit messages determine version bumps
 - GitHub Actions handle automatic releases and deployment
 - After deployment, run `git pull origin main` to sync version updates
+- Before commiting to git, fetch if there are any updates in the branch
