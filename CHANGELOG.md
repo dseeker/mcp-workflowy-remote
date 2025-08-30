@@ -1,3 +1,10 @@
+## [0.5.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.5.0...v0.5.1) (2025-08-30)
+
+
+### Bug Fixes
+
+* improve error reporting in GitHub Actions deployment ([94bdd10](https://github.com/dseeker/mcp-workflowy-remote/commit/94bdd1086306089c7f5323adbc0f5ee515e95ffe))
+
 # [0.5.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.6...v0.5.0) (2025-08-30)
 
 
