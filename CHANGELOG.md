@@ -1,3 +1,10 @@
+## [0.5.4](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.5.3...v0.5.4) (2025-08-30)
+
+
+### Bug Fixes
+
+* resolve wrangler PATH issue in log collection ([d0395db](https://github.com/dseeker/mcp-workflowy-remote/commit/d0395dbafd91971b4d156400310868abab3bb663))
+
 ## [0.5.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.5.2...v0.5.3) (2025-08-30)
 
 
