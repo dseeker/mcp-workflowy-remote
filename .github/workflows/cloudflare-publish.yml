@@ -102,8 +102,25 @@ jobs:
           # Deploy to production first
           VERSION="${{ needs.version.outputs.version || 'dev' }}"
           echo "🚀 Deploying v$VERSION to production..."
-          DEPLOY_OUTPUT=$(npx wrangler deploy 2>&1)
-          echo "$DEPLOY_OUTPUT"
+          
+          # Deploy with better error handling
+          if DEPLOY_OUTPUT=$(npx wrangler deploy 2>&1); then
+            echo "✅ Deployment successful:"
+            echo "$DEPLOY_OUTPUT"
+          else
+            echo "❌ Deployment failed with exit code $?"
+            echo "Error output:"
+            echo "$DEPLOY_OUTPUT"
+            echo "\n🔍 Debugging info:"
+            echo "Working directory: $(pwd)"
+            echo "Files in dist/:"
+            ls -la dist/ || echo "No dist directory"
+            echo "\nWrangler version:"
+            npx wrangler --version
+            echo "\nWorker size:"
+            du -h dist/worker.js 2>/dev/null || echo "No worker.js found"
+            exit 1
+          fi
           
           # Extract worker URL
           WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[a-zA-Z0-9.-]*\.workers\.dev' | head -1)
