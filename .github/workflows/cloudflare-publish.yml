@@ -223,9 +223,8 @@ jobs:
             echo "🚀 Creating preview version for preview branch"
           fi
           
-          # Upload secrets first (same worker, so same secrets for all versions)
-          echo "🔑 Uploading secrets to worker..."
-          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk
+          # Note: Preview versions inherit secrets from the deployed worker
+          # Secrets are uploaded only during production deployment
           
           # Upload new version with persistent preview alias
           if [ "${{ github.event_name }}" = "pull_request" ]; then
