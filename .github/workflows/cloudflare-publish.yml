@@ -230,8 +230,23 @@ jobs:
 
       - name: Collect Worker Logs with Real-time Output
         continue-on-error: true
+        env:
+          WORKER_URL: ${{ steps.deploy.outputs.worker-url }}
+          ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           echo "📋 Starting enhanced worker log collection..."
+          
+          # Verify we have required variables
+          if [ -z "$WORKER_URL" ]; then
+            echo "❌ WORKER_URL is not set - cannot proceed with log collection"
+            exit 1
+          fi
+          
+          if [ -z "$ALLOWED_API_KEYS" ]; then
+            echo "❌ ALLOWED_API_KEYS is not set - cannot proceed with log collection"
+            exit 1
+          fi
           
           # Create log files
           touch worker_logs.json workflow_logs.txt
@@ -239,9 +254,10 @@ jobs:
           # Extract first API key for testing
           FIRST_API_KEY=$(echo "$ALLOWED_API_KEYS" | cut -d',' -f1)
           
-          echo "🧪 Making test requests to generate logs and capture output..."
-          echo "Worker URL: $WORKER_URL"
-          echo "Using API Key: ${FIRST_API_KEY:0:12}..."
+          echo "📊 Log Collection Configuration:"
+          echo "   Worker URL: $WORKER_URL"
+          echo "   API Key: ${FIRST_API_KEY:0:12}..."
+          echo "   Environment: $(echo "$WORKER_URL" | grep -o 'https://[^/]*')"
           echo ""
           
           # Function to make request and capture both response and timing
@@ -277,27 +293,43 @@ jobs:
           }
           
           # Start wrangler tail in background with both file and stdout output
-          echo "📡 Starting wrangler tail (will timeout after 60s)..."
+          echo "📡 Starting wrangler tail (will timeout after 50s)..."
+          echo "   Tail command: npx wrangler tail --format json"
           (
-            timeout 60s npx wrangler tail --format json 2>&1 | tee -a worker_logs.json
+            timeout 50s npx wrangler tail --format json 2>&1 | while IFS= read -r line; do
+              echo "WORKER_LOG: $line"
+              echo "$line" >> worker_logs.json
+            done
           ) &
           TAIL_PID=$!
           
           # Give wrangler tail time to initialize
-          sleep 5
+          echo "⏳ Waiting for wrangler tail to initialize (8 seconds)..."
+          sleep 8
+          
+          # Check if tail process is still running
+          if ! kill -0 $TAIL_PID 2>/dev/null; then
+            echo "❌ Wrangler tail process died during initialization"
+            echo "   This might indicate authentication or network issues"
+          else
+            echo "✅ Wrangler tail process is running (PID: $TAIL_PID)"
+          fi
           
           # Make test requests with detailed logging
+          echo "🚀 Starting request sequence to generate worker logs..."
+          echo ""
+          
           make_request "$WORKER_URL/health" "Health check (no auth)"
-          sleep 2
+          sleep 3
           
           make_request "$WORKER_URL/" "Root endpoint info"
-          sleep 2
+          sleep 3
           
           make_request "$WORKER_URL/tools" "Tools endpoint (with auth)" "-H 'Authorization: Bearer $FIRST_API_KEY'"
-          sleep 2
+          sleep 3
           
           make_request "$WORKER_URL/tools" "Tools endpoint (no auth - should fail)"
-          sleep 2
+          sleep 3
           
           # MCP request
           echo "🔄 Testing MCP endpoint with tools/list"
@@ -335,13 +367,27 @@ jobs:
           sleep 2
           
           # Wait for final logs
-          echo "⏱️  Waiting for final logs (10 seconds)..."
-          sleep 10
+          echo "⏱️  Waiting for final logs to be captured (15 seconds)..."
+          sleep 15
           
           # Stop log collection
-          echo "🛑 Stopping log collection..."
-          kill $TAIL_PID 2>/dev/null || true
-          wait $TAIL_PID 2>/dev/null || true
+          echo "🛑 Stopping wrangler tail..."
+          if kill -0 $TAIL_PID 2>/dev/null; then
+            echo "   Sending TERM signal to PID $TAIL_PID"
+            kill -TERM $TAIL_PID 2>/dev/null || true
+            sleep 3
+            
+            # Force kill if still running
+            if kill -0 $TAIL_PID 2>/dev/null; then
+              echo "   Force killing PID $TAIL_PID"
+              kill -KILL $TAIL_PID 2>/dev/null || true
+            fi
+            
+            wait $TAIL_PID 2>/dev/null || true
+            echo "   ✅ Wrangler tail stopped"
+          else
+            echo "   ℹ️  Wrangler tail process already ended"
+          fi
           
           echo ""
           echo "📊 === LOG COLLECTION SUMMARY ==="
@@ -385,9 +431,6 @@ jobs:
           
           echo ""
           echo "📤 Preparing artifacts..."
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
       - name: Upload Worker Logs
         uses: actions/upload-artifact@v4
