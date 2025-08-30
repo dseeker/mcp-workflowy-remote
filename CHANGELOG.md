@@ -1,3 +1,10 @@
+## [0.4.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.1...v0.4.2) (2025-08-30)
+
+
+### Bug Fixes
+
+* add version validation to deployment verification tests ([8e988cd](https://github.com/dseeker/mcp-workflowy-remote/commit/8e988cd7a2f9f773353669da9467548750970336))
+
 ## [0.4.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.4.0...v0.4.1) (2025-08-30)
 
 
