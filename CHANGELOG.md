@@ -1,3 +1,10 @@
+## [0.7.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.7.1...v0.7.2) (2025-08-30)
+
+
+### Bug Fixes
+
+* resolve remaining bash syntax error in log statistics calculation ([9f87d86](https://github.com/dseeker/mcp-workflowy-remote/commit/9f87d8646c97be8e61f6862ce982c637406b6bdc))
+
 ## [0.7.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.7.0...v0.7.1) (2025-08-30)
 
 
