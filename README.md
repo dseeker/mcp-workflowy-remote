@@ -44,28 +44,52 @@ npx mcp-workflowy server start
 - **🔗 Workflowy Integration**: Connect to your Workflowy account with username/password
 - **🌐 Multiple Deployment Options**: Local server or remote Cloudflare Workers
 - **🔒 Secure Authentication**: API key protection with client-provided credentials
-- **⚡ Advanced Search**: Filter by depth, fields, preview length, and result limits
+- **⚡ Intelligent Metadata Hydration**: Enriched responses with context like parentName, hierarchy, siblings
+- **🎯 Workflowy-Focused Operations**: Operations designed for real Workflowy usage patterns
 - **🛠️ Complete CRUD Operations**: Create, read, update, delete, and move nodes
 - **📊 Smart Defaults**: Optimized for performance with minimal token usage
+- **🔍 Advanced Search**: Filter by depth, fields, preview length, and result limits
 
-## 🛠️ Available Tools
+## 🛠️ Available Operations
 
-1. **list_nodes** - List Workflowy nodes with smart filtering
-2. **search_nodes** - Search nodes with advanced parameters
-3. **create_node** - Create new nodes
-4. **update_node** - Modify existing nodes
-5. **toggle_complete** - Mark nodes complete/incomplete
-6. **delete_node** - Delete nodes
-7. **move_node** - Move nodes with priority control
-8. **get_node_by_id** - Get single node with full details
+### Core Operations
+1. **list_nodes** - List nodes with intelligent metadata hydration
+2. **search_nodes** - Search with advanced filtering and context enrichment
+3. **get_node_by_id** - Get single node with full relationship details
+4. **create_node** - Create new nodes with smart positioning
+5. **update_node** - Modify existing nodes with validation
+6. **delete_node** - Remove nodes safely
+7. **move_node** - Reorganize nodes with priority control
+8. **toggle_complete** - Mark completion with timestamp tracking
+
+### Enhanced Capabilities
+- **Smart Field Selection**: Use `includeFields` to request specific metadata
+- **Context-Aware Responses**: Automatic hydration of parentName, hierarchy, siblings
+- **Performance Optimization**: Only fetches requested metadata to minimize API calls
+- **Workflowy-Native Patterns**: Operations aligned with real Workflowy workflows
 
 ## 💡 Example Usage
 
-Personally, I use Workflowy as my project management tool. With this MCP server, I can:
+The MCP server enables natural AI interactions with your Workflowy data:
 
-- *"Show my all my notes on project XYZ in Workflowy"*
+### Basic Operations
+- *"Show all my notes on project XYZ in Workflowy"*
 - *"Review the codebase, mark all completed notes as completed"*
 - *"Given my milestones on Workflowy for this project, suggest what my next task should be"*
+
+### Enhanced with Metadata
+- *"Search for 'meeting' and show me the parent context for each result"*
+- *"Find all incomplete items and tell me their hierarchy path"*
+- *"List my grocery list with completion status and priority order"*
+
+### Smart Field Selection
+```javascript
+// Request only basic fields for performance
+{ "includeFields": ["id", "name", "isCompleted"] }
+
+// Request enhanced context for analysis
+{ "includeFields": ["name", "parentName", "hierarchy", "siblings", "priority"] }
+```
 
 ## 🧪 Testing
 
@@ -92,7 +116,7 @@ npm run test:coverage       # Coverage report
 | **[Performance & Resilience](docs/PERFORMANCE.md)** | Caching, retry logic, error handling, and optimization features |
 | **[Troubleshooting](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
 | **[Testing Guide](README-TESTING.md)** | Test patterns and mock data structure |
-| **[ADR Documentation](adr/)** | Architecture Decision Records for feature development |
+| **[ADR Documentation](adr/)** | Architecture Decision Records with compound operations design |
 
 ## 🔧 Development Commands
 
