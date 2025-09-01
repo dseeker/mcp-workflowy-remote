@@ -1,3 +1,12 @@
+# [0.8.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.7.3...v0.8.0) (2025-09-01)
+
+
+### Features
+
+* enhance ADRs with Workflowy compound operations ([2a5c392](https://github.com/dseeker/mcp-workflowy-remote/commit/2a5c392df107d9e4921f7b3a40c2c4f6636cea56))
+* enhance remaining ADRs with compound operations ([defa058](https://github.com/dseeker/mcp-workflowy-remote/commit/defa058b4b1a443ed025808f045597d846219dbc))
+* implement metadata hydration architecture in client and tools ([71b0e81](https://github.com/dseeker/mcp-workflowy-remote/commit/71b0e81d27ee0fe282d83b94bc3979b594499c0f))
+
 ## [0.7.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.7.2...v0.7.3) (2025-08-30)
 
 
