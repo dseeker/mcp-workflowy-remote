@@ -1,6 +1,6 @@
 {
   "name": "mcp-workflowy",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "MCP server that lets agents talk to Workflowy",
   "bin": {
     "mcp-workflowy": "dist/index.js"
