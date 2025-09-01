@@ -76,13 +76,33 @@ search_nodes({ query: "TypeScript", limit: 3 })
 
 #### **Field Selection (`includeFields`)**
 Choose which fields to include in the response for performance optimization:
-- `includeFields: ["id", "name"]` - Only include ID and name fields
-- `includeFields: ["id", "name", "note"]` - Include ID, name, and note fields
-- `includeFields: undefined` (default) - Include all fields (`id`, `name`, `note`, `isCompleted`)
 
-**Important:** The `items` array is always included for structural integrity, regardless of field selection.
+**Basic Fields:**
+- `id` - Node identifier
+- `name` - Node title/text
+- `note` - Node description/note
+- `isCompleted` - Completion status
+- `items` - Child nodes (always included for structural integrity)
 
-**Field filtering applies recursively** to all children at all levels.
+**Metadata Fields (Advanced):**
+- `parentId` - ID of parent node
+- `parentName` - Name of parent node
+- `priority` - Position among siblings (0-based)
+- `siblingCount` - Total number of siblings including self
+- `lastModifiedAt` - Last modification timestamp (ISO string)
+- `completedAt` - Completion timestamp (ISO string, if completed)
+- `isMirror` - Whether node is a mirror/reference
+- `originalId` - Original node ID (for mirrors)
+- `isSharedViaUrl` - Whether node is shared via URL
+- `sharedUrl` - Shared URL (if shared)
+- `hierarchy` - Array of parent names from root to node
+- `siblings` - Array of sibling nodes with basic info
+
+**Performance Notes:**
+- Basic fields are lightweight and fast
+- Metadata fields require additional processing - only request when needed
+- `includeFields: undefined` (default) - Include all basic fields only
+- Field filtering applies recursively to all children at all levels
 
 **Example Usage:**
 ```javascript
@@ -93,7 +113,21 @@ search_nodes({
   maxDepth: 2 
 })
 
-// Result structure:
+// Get results with navigation context
+search_nodes({
+  query: "project",
+  includeFields: ["id", "name", "parentName", "hierarchy", "priority"],
+  maxDepth: 1
+})
+
+// Get full metadata for detailed analysis
+search_nodes({
+  query: "project", 
+  includeFields: ["id", "name", "note", "isCompleted", "hierarchy", "siblings", "lastModifiedAt"],
+  limit: 5
+})
+
+// Result structure (basic fields only):
 [
   {
     "id": "node-1",
@@ -114,6 +148,25 @@ search_nodes({
   }
 ]
 // Note: 'note' and 'isCompleted' fields excluded from all levels
+
+// Result structure (with metadata fields):
+[
+  {
+    "id": "node-1",
+    "name": "Project Management",
+    "parentId": "root-123", 
+    "parentName": "Work Projects",
+    "hierarchy": ["Work Projects"],
+    "priority": 0,
+    "siblingCount": 3,
+    "lastModifiedAt": "2023-12-01T10:30:00.000Z",
+    "siblings": [
+      { "id": "node-2", "name": "Personal Goals", "priority": 1 },
+      { "id": "node-3", "name": "Research", "priority": 2 }
+    ],
+    "items": []
+  }
+]
 ```
 
 #### **Content Preview (`preview`)**
@@ -162,12 +215,32 @@ search_nodes({
 
 ## Tool Details
 
+#### **Metadata Use Cases**
+Metadata fields enable powerful workflows:
+
+**Navigation & Context:**
+- `hierarchy` - Build breadcrumb navigation ("Home > Projects > Sprint Planning")
+- `parentName` - Show parent context without full hierarchy
+- `siblings` - Navigate between items at same level
+
+**Organization & Prioritization:**
+- `priority` - Understand item ordering and positioning
+- `siblingCount` - Show "Item 2 of 5" context
+- `lastModifiedAt` - Sort by recent activity, show staleness
+
+**Advanced Workflows:**
+- `isSharedViaUrl` + `sharedUrl` - Manage shared content
+- `isMirror` + `originalId` - Handle references and links
+- `completedAt` - Audit completion times, generate reports
+
+## Tool Details
+
 ### 1. list_nodes - List Workflowy nodes with filtering and preview options
 
 **Parameters:**
 - `parentId` (optional): Parent node ID
 - `maxDepth` (optional): Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)
-- `includeFields` (optional): Fields to include in response. Available: id, name, note, isCompleted (default: id, name)
+- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: id, name)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
 
 ### 2. search_nodes - Search nodes by text with advanced filtering
@@ -176,7 +249,7 @@ search_nodes({
 - `query` (required): Search query
 - `limit` (optional): Maximum number of results to return
 - `maxDepth` (optional): Maximum depth of children to include (default: 0)
-- `includeFields` (optional): Fields to include in response. Available: id, name, note, isCompleted (default: all)
+- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
 
 ### 3. create_node - Create new node
@@ -216,7 +289,7 @@ search_nodes({
 **Parameters:**
 - `nodeId` (required): Node ID to retrieve
 - `maxDepth` (optional): Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)
-- `includeFields` (optional): Fields to include in response. Available: id, name, note, isCompleted (default: all)
+- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
 
 ## MCP Protocol Endpoints
