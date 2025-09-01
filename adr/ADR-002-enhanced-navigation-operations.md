@@ -1,10 +1,50 @@
 # ADR-002: Enhanced Navigation and Structure Operations
 
 ## Status
-**Status**: Proposed  
-**Date**: 2025-08-29  
+**Status**: ✅ **SUPERSEDED by ADR-005 Metadata Hydration Architecture**  
+**Date**: 2025-08-29 (Original), Updated 2025-08-31  
 **Authors**: System Architect  
-**Reviewers**: Development Team  
+**Reviewers**: Development Team
+
+## ✅ **Implementation Update (2025-08-31)**
+
+**This ADR has been SUPERSEDED and IMPLEMENTED** through the Metadata Hydration Architecture (ADR-005). The goals of this ADR were achieved in a more elegant way:
+
+### **Original Plan vs. Actual Implementation**
+- **Original Plan**: Create separate navigation tools (`get_node_details`, `get_node_hierarchy`, `get_node_siblings`)
+- **Actual Implementation**: Enhanced existing tools with metadata hydration via `includeFields`
+- **Result**: Same functionality, better architecture, no API proliferation
+
+### **Implemented Navigation Capabilities**
+All navigation features from this ADR are now available:
+
+**Hierarchy Navigation:**
+```typescript
+search_nodes({
+  query: "project",
+  includeFields: ['name', 'hierarchy', 'parentName']
+  // Returns: Full breadcrumb paths and parent context
+})
+```
+
+**Sibling Navigation:**
+```typescript
+get_node_by_id({
+  nodeId: "123",
+  includeFields: ['name', 'siblings', 'priority', 'siblingCount']
+  // Returns: All siblings with position context
+})
+```
+
+**Advanced Metadata:**
+```typescript
+list_nodes({
+  includeFields: ['name', 'lastModifiedAt', 'completedAt', 'priority']
+  // Returns: Rich metadata for analysis
+})
+```
+
+### **Status**: ✅ **COMPLETED** - All objectives achieved through ADR-005  
 
 ## Context and Problem Statement
 

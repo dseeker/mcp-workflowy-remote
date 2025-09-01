@@ -1,10 +1,57 @@
 # ADR-009: Analytics & Metadata Implementation
 
 ## Status
-**Status**: Proposed  
-**Date**: 2025-08-29  
+**Status**: ✅ **PARTIALLY IMPLEMENTED via ADR-005 Metadata Hydration Architecture**  
+**Date**: 2025-08-29 (Original), Updated 2025-08-31  
 **Authors**: System Architect  
-**Reviewers**: Development Team  
+**Reviewers**: Development Team
+
+## ✅ **Implementation Update (2025-08-31)**
+
+**Core metadata capabilities from this ADR have been IMPLEMENTED** through the Metadata Hydration Architecture (ADR-005). Many analytics goals are now achievable:
+
+### **Implemented Metadata Capabilities**
+The following analytics and metadata features are now available:
+
+**Temporal Analytics:**
+```typescript
+search_nodes({
+  query: "project",
+  includeFields: ['name', 'lastModifiedAt', 'completedAt']
+  // Enables: Activity analysis, completion rate tracking, staleness detection
+})
+```
+
+**Structural Analytics:**
+```typescript
+list_nodes({
+  includeFields: ['name', 'priority', 'siblingCount', 'hierarchy']
+  // Enables: Document structure analysis, organization patterns
+})
+```
+
+**Relationship Analytics:**
+```typescript
+get_node_by_id({
+  nodeId: "123",
+  includeFields: ['name', 'siblings', 'isMirror', 'originalId']
+  // Enables: Reference tracking, duplicate detection, relationship mapping
+})
+```
+
+### **Analytics Use Cases Now Possible**
+- **Productivity Tracking**: Using `completedAt` and `lastModifiedAt` timestamps
+- **Document Health**: Using hierarchy depth, sibling counts, structural patterns
+- **Activity Patterns**: Using modification timestamps and completion rates
+- **Organization Analysis**: Using hierarchy patterns and priority distributions
+
+### **Remaining Analytics Features** (Future Implementation)
+- Historical tracking and trend analysis
+- Aggregate statistics and reporting tools
+- Real-time analytics dashboards
+- AI-powered insights and recommendations
+
+### **Status**: 🔄 **IN PROGRESS** - Core metadata implemented, advanced analytics pending  
 
 ## Context and Problem Statement
 
