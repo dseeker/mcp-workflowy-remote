@@ -21,10 +21,14 @@ Architecture Decision Records (ADRs) are documents that capture important archit
   - Branch-based deployment with Cloudflare Workers versioning
   - Status: ✅ **Completed**
 
+- **[ADR-005: Metadata Hydration Architecture](005-metadata-hydration-architecture.md)**
+  - Enhanced `includeFields` with metadata hydration across all existing tools
+  - Status: ✅ **Completed**
+
 ### Phase 1: Enhanced Operations
 - **[ADR-002: Enhanced Navigation and Structure Operations](ADR-002-enhanced-navigation-operations.md)**
   - Advanced navigation capabilities and hierarchy traversal
-  - Status: 📋 **Planned**
+  - Status: ✅ **Superseded by ADR-005** (goals achieved through metadata hydration)
 
 - **[ADR-003: Sharing and Collaboration Features](ADR-003-sharing-collaboration-features.md)**
   - Node sharing and permission management
@@ -54,7 +58,7 @@ Architecture Decision Records (ADRs) are documents that capture important archit
 
 - **[ADR-009: Analytics & Metadata Implementation](ADR-009-analytics-metadata.md)**
   - Analytics and metadata collection features
-  - Status: 📋 **Planned**
+  - Status: 🔄 **Partially Implemented** (core metadata via ADR-005, advanced analytics pending)
 
 ## ADR Template
 
@@ -62,9 +66,9 @@ New ADRs should use the **[ADR Template](ADR-TEMPLATE.md)** to maintain consiste
 
 ## Implementation Progress
 
-- **Phase 0**: ✅ 3/3 Complete (Foundation established)
-- **Phase 1**: 📋 0/3 Complete (Enhanced operations)  
+- **Phase 0**: ✅ 4/4 Complete (Foundation established + Metadata Hydration Architecture)
+- **Phase 1**: ✅ 1/3 Complete (ADR-002 superseded by ADR-005, enhanced operations achieved)  
 - **Phase 2**: 📋 0/3 Complete (Advanced features)
-- **Phase 3**: 📋 0/2 Complete (System enhancement)
+- **Phase 3**: 🔄 1/2 Partial (ADR-009 core metadata implemented via ADR-005)
 
 See **[docs/COVERAGE-ANALYSIS.md](../docs/COVERAGE-ANALYSIS.md)** for detailed coverage analysis and implementation roadmap.
