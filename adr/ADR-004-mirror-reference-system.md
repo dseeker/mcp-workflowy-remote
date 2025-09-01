@@ -8,33 +8,33 @@
 
 ## Context and Problem Statement
 
-Workflowy's mirror/reference system is a powerful feature that enables linked thinking and cross-referencing within documents. Mirrors allow the same content to appear in multiple locations while maintaining a single source of truth. This enables sophisticated knowledge management workflows, but the current MCP server lacks any mirror functionality, preventing AI assistants from understanding or managing these linked relationships.
+Workflowy's mirror system enables the same content to appear in multiple locations while maintaining a single source of truth. This supports real Workflowy usage patterns like having the same agenda template appear across multiple meeting lists, or having recurring task lists appear in different project contexts. The current MCP server lacks compound operations for creating and managing these mirror networks efficiently.
 
 What architectural problem are we solving?
-- Missing support for Workflowy's advanced linked-thinking capabilities
-- Inability to understand or manage cross-references in documents
-- No programmatic access to mirror relationships and original content
-- Limited AI context about content relationships and dependencies
+- **Mirror Network Creation**: Users need single operations to create template/content references across multiple locations
+- **Cross-Reference Management**: Creating bidirectional links and maintaining reference networks requires multiple API calls
+- **Template Distribution**: Distributing recurring structures (agendas, checklists) to multiple contexts is inefficient
+- **Reference Resolution**: Following mirror chains and understanding content relationships requires complex orchestration
 
 ## Decision Drivers
 
-* **Linked Thinking Support**: Enable AI to understand and work with interconnected content
-* **Knowledge Management**: Support sophisticated information architecture patterns
-* **Content Relationship Awareness**: Provide context about how content relates across the document
-* **Advanced AI Workflows**: Enable AI to create and manage content relationships
-* **Data Integrity**: Ensure mirror operations maintain content consistency
-* **Performance Optimization**: Efficient handling of mirrored content without duplication
+* **Template Reuse**: Support common Workflowy patterns like recurring agendas, checklists, and structures
+* **Network Creation Efficiency**: Single operations to create mirror networks across multiple contexts
+* **Bidirectional Linking**: Create and maintain cross-references that work in both directions
+* **Mirror Resolution**: Intelligent resolution of mirror chains to find original content
+* **Content Consistency**: Ensure mirrors maintain single source of truth while providing context
+* **Template Distribution**: Efficiently distribute templates and structures to multiple locations
 
 ## Considered Options
 
-1. **Basic Mirror Detection**: Only identify mirrors without creation or management capabilities
-2. **Comprehensive Mirror Management**: Full mirror creation, resolution, and relationship tracking
-3. **Read-Only Mirror Analysis**: Focus on understanding existing mirrors without modification
-4. **Advanced Relationship Mapping**: Include dependency graphs and relationship visualization
+1. **Individual Mirror Operations**: Basic create_mirror(), get_mirrors(), resolve_mirror() operations
+2. **Template Distribution System**: Compound operations for distributing templates across contexts
+3. **Mirror Network Management**: Operations for creating and managing connected mirror networks
+4. **Cross-Reference Automation**: Intelligent bidirectional linking and reference management
 
 ## Decision Outcome
 
-**Chosen option**: Comprehensive Mirror Management - Full mirror creation, resolution, and relationship tracking
+**Chosen option**: Template Distribution System - Compound operations for distributing templates across contexts
 
 ### Positive Consequences
 
@@ -172,51 +172,55 @@ Total Estimated: ~30,000 tokens
 
 ## Implementation Notes
 
-### Key Changes Required
-1. **create_mirror operation** - Create reference relationships between nodes - **Est: 2,500 tokens**
-2. **get_mirrors operation** - Find all mirrors of a specific node - **Est: 1,800 tokens**
-3. **resolve_mirror operation** - Get original content from mirror reference - **Est: 2,200 tokens**
-4. **Mirror relationship tracking** - Graph-based relationship management - **Est: 2,000 tokens**
-5. **Graph traversal utilities** - Efficient mirror network navigation - **Est: 2,500 tokens**
-6. **Comprehensive testing suite** - ~30 test cases for mirror scenarios - **Est: 2,500 tokens**
+### Key Compound Operations Required
 
-### Mirror System Architecture
+1. **create_cross_references()** - Create template distribution networks - **Est: 3,000 tokens**
+2. **distribute_template()** - Deploy recurring structures to multiple contexts - **Est: 2,800 tokens**
+3. **setup_bidirectional_links()** - Create reciprocal reference relationships - **Est: 2,200 tokens**
+4. **resolve_mirror_network()** - Follow mirror chains to original content - **Est: 2,000 tokens**
+5. **maintain_mirror_integrity()** - Validate and repair mirror relationships - **Est: 2,500 tokens**
+6. **Comprehensive testing suite** - ~25 test cases for compound mirror workflows - **Est: 2,800 tokens**
 
-**Mirror Data Model**:
+### Template Distribution Architecture
+
+**Template Distribution Operation**:
 ```typescript
-interface MirrorNode {
-  id: string;
-  originalId: string;
-  isMirror: boolean;
-  mirrorLevel: number;     // Depth in mirror chain
-  lastSynced: Date;
-  parentMirrors?: string[]; // For dependency tracking
-}
-
-interface MirrorRelationship {
-  originalId: string;
-  mirrorIds: string[];
-  createdAt: Date;
-  relationshipType: 'direct' | 'transitive';
-}
-```
-
-**Graph Algorithm Implementation**:
-```typescript
-class MirrorManager {
-  // Create mirror relationship
-  async createMirror(originalId: string, targetParentId: string): Promise<MirrorNode> {
-    // Validate no circular references
-    this.validateNonCircular(originalId, targetParentId);
+async create_cross_references({
+  sourceId: "meeting-agenda-template",
+  createIn: ["weekly-standup", "monthly-review", "quarterly-planning"],
+  linkType: "mirror" // creates live mirrors vs static copies
+}): Promise<CrossReferenceResult> {
+  // Internally orchestrates:
+  // 1. get_node_by_id(sourceId) - Get template structure
+  // 2. For each target: search_nodes() to find or create context
+  // 3. create_mirror() - Mirror template into each location  
+  // 4. update_node() - Add cross-reference notes for discoverability
+  
+  const template = await this.getNodeById(sourceId);
+  const results = [];
+  
+  for (const targetContext of createIn) {
+    const targetList = await this.findOrCreateContext(targetContext);
+    const mirror = await this.createMirror(sourceId, targetList.id);
     
-    // Create mirror node with reference to original
-    const mirror = await this.workflowyClient.createMirrorReference(originalId, targetParentId);
+    // Add bidirectional reference for discoverability
+    await this.updateNode(template.id, {
+      note: template.note + `\n→ Used in: ${targetContext}`
+    });
     
-    // Update relationship graph
-    this.updateMirrorGraph(originalId, mirror.id);
-    
-    return mirror;
+    results.push({
+      targetContext,
+      mirrorId: mirror.id,
+      targetListId: targetList.id
+    });
   }
+  
+  return {
+    sourceId,
+    distributionCount: results.length,
+    references: results
+  };
+}
 
   // Find all mirrors of a node
   async getMirrors(nodeId: string): Promise<MirrorNode[]> {

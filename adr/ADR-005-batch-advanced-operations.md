@@ -8,33 +8,33 @@
 
 ## Context and Problem Statement
 
-As the MCP server capabilities expand with individual operations (ADR-001 through ADR-004), users need efficient batch processing and advanced operations to manage large-scale Workflowy document modifications. Individual operations become inefficient for bulk changes, and users require sophisticated operations like bulk completion management, node duplication, and atomic multi-operation transactions.
+As the MCP server capabilities expand with individual operations (ADR-001 through ADR-004), users need efficient **compound operations** that orchestrate multiple library functions to accomplish complete Workflowy workflows. Individual operations require users to make multiple MCP calls for common tasks like reorganizing lists, processing content, and managing hierarchical structures.
 
 What architectural problem are we solving?
-- Inefficient individual operations for bulk document changes
-- Missing atomic transaction support for multi-step operations
-- Lack of advanced content management operations (duplication, reordering)
-- No bulk pattern-based operations for large document management
+- **Compound Workflow Needs**: Common Workflowy patterns require orchestrating multiple library functions
+- **List Organization Inefficiency**: Reorganizing by completion status, priority, or content patterns requires many individual calls
+- **Content Processing Complexity**: Bulk text transformations and structured information capture need intelligent orchestration
+- **Hierarchy Management**: Advanced list maintenance and structure optimization require sophisticated multi-step operations
 
 ## Decision Drivers
 
-* **Operational Efficiency**: Enable bulk operations to reduce API calls and improve performance
-* **Transaction Integrity**: Atomic operations ensure document consistency during complex changes
-* **Advanced Content Management**: Support sophisticated document organization and maintenance
-* **AI Workflow Optimization**: Enable complex AI-driven document transformations
-* **Error Recovery**: Batch operations with rollback capabilities for failed operations
-* **Performance Scaling**: Handle large document modifications efficiently
+* **Workflowy Workflow Alignment**: Operations should match real Workflowy usage patterns (lists, hierarchies, completion)
+* **AI Assistant Efficiency**: Single MCP calls should accomplish complete user goals rather than requiring orchestration
+* **List Organization**: Support common patterns like reorganizing by completion status, grouping by content
+* **Content Intelligence**: Enable smart text processing and structured information capture
+* **Hierarchy Health**: Provide operations for maintaining clean, well-organized list structures
+* **Performance Optimization**: Reduce multiple API calls to single compound operations
 
 ## Considered Options
 
-1. **Basic Batch Operations**: Simple multi-operation batching without transaction support
-2. **Comprehensive Batch Suite**: Full atomic transactions with advanced operations and rollback
-3. **Pattern-Based Operations**: Focus on bulk pattern matching and transformation operations
-4. **Performance-Optimized Implementation**: Advanced caching and optimization for large-scale operations
+1. **Basic Compound Operations**: Simple multi-step operations without advanced workflow intelligence
+2. **Workflowy-Specific Compound Suite**: Operations tailored to real Workflowy workflows and patterns
+3. **Generic Batch Processing**: Technology-focused batching without Workflowy workflow awareness
+4. **AI-Optimized Workflow Operations**: Compound operations designed specifically for AI assistant usage
 
 ## Decision Outcome
 
-**Chosen option**: Comprehensive Batch Suite - Full atomic transactions with advanced operations and rollback
+**Chosen option**: Workflowy-Specific Compound Suite - Operations tailored to real Workflowy workflows and patterns
 
 ### Positive Consequences
 
@@ -174,25 +174,31 @@ Total Estimated: ~46,200 tokens
 
 ## Implementation Notes
 
-### Key Changes Required
-1. **batch_operations framework** - Atomic multi-operation transactions - **Est: 3,500 tokens**
-2. **duplicate_node operation** - Node cloning with children - **Est: 2,000 tokens**
-3. **bulk_complete operation** - Pattern-based completion management - **Est: 2,500 tokens**
-4. **reorder_children operation** - Advanced node reordering - **Est: 2,200 tokens**
-5. **Transaction management system** - Atomic operations and rollback - **Est: 4,000 tokens**
-6. **Performance optimization** - Caching and batch processing optimization - **Est: 3,000 tokens**
-7. **Comprehensive testing suite** - ~45 test cases for transaction scenarios - **Est: 4,000 tokens**
+### Key Compound Operations Required
 
-### Transaction System Architecture
+1. **organize_by_completion()** - Reorganize lists by completion status - **Est: 2,500 tokens**
+2. **bulk_text_transform()** - Extract action items, add numbering, process content - **Est: 3,000 tokens**
+3. **maintain_list_structure()** - Archive completed, merge duplicates, rebalance depth - **Est: 3,500 tokens**
+4. **capture_structured_info()** - Parse text into organized list structures - **Est: 2,800 tokens**
+5. **find_and_organize_patterns()** - Group related items, create structure from content - **Est: 2,200 tokens**
+6. **batch_hierarchy_operations()** - Multi-level list restructuring - **Est: 2,000 tokens**
+7. **Comprehensive testing suite** - ~30 test cases for compound workflows - **Est: 3,000 tokens**
 
-**Transaction Data Model**:
+### Compound Operations Architecture
+
+**List Organization Operation**:
 ```typescript
-interface BatchOperation {
-  id: string;
-  type: 'create' | 'update' | 'delete' | 'move' | 'complete' | 'duplicate';
-  nodeId: string;
-  parameters: Record<string, any>;
-  dependencies?: string[]; // Operation IDs this depends on
+async organize_by_completion({
+  parentId: "grocery-list",
+  moveCompleted: "bottom", // or "top" or "separate_list"
+  createSections: true
+}): Promise<OrganizationResult> {
+  // Internally orchestrates:
+  // 1. list_nodes(parentId) - Get all items  
+  // 2. Filter by isCompleted status
+  // 3. move_node() each completed item to target position
+  // 4. Optionally create_node() "✓ Done" section
+  // 5. Return reorganization summary
 }
 
 interface Transaction {
@@ -264,53 +270,74 @@ class BatchOperationManager {
 }
 ```
 
-### Advanced Operations Implementation
+### Workflowy Compound Operations Implementation
 
-**Node Duplication with Children**:
+**Bulk Text Transformation**:
 ```typescript
-async duplicateNode(
-  nodeId: string, 
-  targetParentId: string, 
-  includeChildren: boolean = true,
-  preserveReferences: boolean = false
-): Promise<DuplicationResult> {
-  const originalNode = await this.getNode(nodeId);
-  const duplicateMap = new Map<string, string>(); // original -> duplicate ID mapping
+async bulk_text_transform({
+  parentId: "meeting-notes",
+  transformation: "extract_action_items", // or "number_items", "add_dates"  
+  pattern: /TODO|ACTION|FOLLOW.?UP/i
+}): Promise<TransformationResult> {
+  // Internally orchestrates:
+  // 1. search_nodes() within parent for pattern matches
+  // 2. create_node() new "Action Items" list
+  // 3. For each match: create_node() with extracted text
+  // 4. update_node() original items with "→ Action Items" reference
   
-  // Create duplicate of root node
-  const duplicate = await this.createNode(targetParentId, originalNode.name, originalNode.note);
-  duplicateMap.set(nodeId, duplicate.id);
+  const matches = await this.searchWithinParent(parentId, pattern);
+  const actionList = await this.createNode(parentId, "📋 Action Items", "");
   
-  if (includeChildren) {
-    await this.duplicateChildrenRecursive(originalNode, duplicate.id, duplicateMap, preserveReferences);
+  for (const match of matches) {
+    const actionText = this.extractActionText(match);
+    await this.createNode(actionList.id, actionText, `From: ${match.name}`);
+    await this.updateNode(match.id, { note: match.note + " → Action Items" });
   }
   
   return {
-    originalId: nodeId,
-    duplicateId: duplicate.id,
-    duplicateMap: Object.fromEntries(duplicateMap),
-    childrenCount: duplicateMap.size - 1
+    originalMatches: matches.length,
+    actionsCreated: matches.length,
+    actionListId: actionList.id
   };
 }
 ```
 
-**Pattern-Based Bulk Completion**:
+**List Structure Maintenance**:
 ```typescript
-async bulkComplete(
-  pattern: string | RegExp,
-  completed: boolean,
-  searchScope?: string, // Parent node to search within
-  maxNodes?: number
-): Promise<BulkOperationResult> {
-  const matchingNodes = await this.findNodesByPattern(pattern, searchScope, maxNodes);
-  const operations: BatchOperation[] = matchingNodes.map(node => ({
-    id: `complete-${node.id}`,
-    type: 'complete',
-    nodeId: node.id,
-    parameters: { completed }
-  }));
+async maintain_list_structure({
+  parentId: "main-workspace", 
+  archiveCompleted: true,
+  mergeDuplicates: true,
+  rebalanceDepth: true
+}): Promise<MaintenanceResult> {
+  // Orchestrates maintenance operations:
+  // 1. search_nodes() to find completed items older than threshold
+  // 2. create_node() "📁 Archive" if needed  
+  // 3. move_node() old completed items to archive
+  // 4. find_duplicates() and merge similar items
+  // 5. flatten overly deep hierarchies by promoting nested items
   
-  return this.executeBatch(operations);
+  let maintenanceActions = [];
+  
+  if (archiveCompleted) {
+    const archiveActions = await this.archiveOldCompletedItems(parentId);
+    maintenanceActions.push(...archiveActions);
+  }
+  
+  if (mergeDuplicates) {
+    const mergeActions = await this.findAndMergeDuplicates(parentId);
+    maintenanceActions.push(...mergeActions);
+  }
+  
+  if (rebalanceDepth) {
+    const rebalanceActions = await this.rebalanceHierarchyDepth(parentId);
+    maintenanceActions.push(...rebalanceActions);
+  }
+  
+  return { 
+    actionsPerformed: maintenanceActions.length,
+    details: maintenanceActions
+  };
 }
 ```
 
