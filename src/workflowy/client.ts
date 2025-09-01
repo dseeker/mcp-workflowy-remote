@@ -142,14 +142,24 @@ class WorkflowyClient {
                 const rootData = doc.root.toJson();
                 const rootItems = rootData.items || [];
                 
-                const result = rootItems.map(item => this.createFilteredNode(item, maxDepth, includeFields, 0, previewLength));
+                // Check if metadata fields are requested
+                const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
+                
+                const result = [];
+                for (let i = 0; i < rootItems.length; i++) {
+                    const item = rootItems[i];
+                    const workflowyList = needsMetadata ? doc.root.items[i] : undefined;
+                    const filteredItem = await this.createFilteredNode(item, maxDepth, includeFields, 0, previewLength, workflowyList);
+                    result.push(filteredItem);
+                }
                 
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('getRootItems', duration, true, {
                     itemCount: result.length,
                     maxDepth,
                     includeFields: includeFields?.join(','),
-                    previewLength
+                    previewLength,
+                    metadataHydrated: needsMetadata
                 });
                 
                 return result;
@@ -171,14 +181,23 @@ class WorkflowyClient {
             
             try {
                 let doc = await wf.getDocument();
-                const parent = doc.root.items.find(item => item.id === parentId);
+                const parent = this.findNodeById(doc.root.items, parentId);
                 
                 if (!parent) {
                     throw new NotFoundError(`Parent node with ID ${parentId} not found.`, parentId);
                 }
                 
+                // Check if metadata fields are requested
+                const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
+                
                 // Apply filtering (always filter now, with defaults if not specified)
-                const result = parent.items.map(item => this.createFilteredNode(item.toJson(), maxDepth, includeFields, 0, previewLength));
+                const result = [];
+                for (let i = 0; i < parent.items.length; i++) {
+                    const item = parent.items[i];
+                    const workflowyList = needsMetadata ? item : undefined;
+                    const filteredItem = await this.createFilteredNode(item.toJson(), maxDepth, includeFields, 0, previewLength, workflowyList);
+                    result.push(filteredItem);
+                }
                 
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('getChildItems', duration, true, {
@@ -186,7 +205,8 @@ class WorkflowyClient {
                     itemCount: result.length,
                     maxDepth,
                     includeFields: includeFields?.join(','),
-                    previewLength
+                    previewLength,
+                    metadataHydrated: needsMetadata
                 });
                 
                 return result;
@@ -202,17 +222,24 @@ class WorkflowyClient {
     }
 
     /**
-     * Create filtered node JSON with depth and field control
+     * Create filtered node JSON with depth and field control and metadata hydration
      */
-    private createFilteredNode(node: any, maxDepth: number = 0, includeFields?: string[], currentDepth: number = 0, previewLength?: number): any {
+    private async createFilteredNode(
+        node: any, 
+        maxDepth: number = 0, 
+        includeFields?: string[], 
+        currentDepth: number = 0, 
+        previewLength?: number,
+        workflowyList?: any
+    ): Promise<any> {
         const defaultFields = ['id', 'name', 'note', 'isCompleted'];
         const fieldsToInclude = includeFields || defaultFields;
         
         const filtered: any = {};
         
-        // Include requested fields
+        // Include basic requested fields
         fieldsToInclude.forEach(field => {
-            if (field in node && field !== 'items') {
+            if (field in node && field !== 'items' && !this.isMetadataField(field)) {
                 let value = node[field];
                 
                 // Apply content truncation for string fields if previewLength is specified
@@ -223,17 +250,132 @@ class WorkflowyClient {
                 filtered[field] = value;
             }
         });
+
+        // Hydrate metadata fields if requested and workflowyList is provided
+        if (workflowyList) {
+            await this.hydrateMetadataFields(filtered, fieldsToInclude, workflowyList);
+        }
         
         // Handle children based on depth
         if (maxDepth > currentDepth && node.items && node.items.length > 0) {
-            filtered.items = node.items.map((child: any) => 
-                this.createFilteredNode(child, maxDepth, includeFields, currentDepth + 1, previewLength)
-            );
+            filtered.items = [];
+            for (const child of node.items) {
+                const childFiltered = await this.createFilteredNode(
+                    child, maxDepth, includeFields, currentDepth + 1, previewLength, 
+                    workflowyList ? workflowyList.items.find((item: any) => item.id === child.id) : undefined
+                );
+                filtered.items.push(childFiltered);
+            }
         } else {
             filtered.items = [];
         }
         
         return filtered;
+    }
+
+    /**
+     * Check if field is a metadata field that requires hydration
+     */
+    private isMetadataField(field: string): boolean {
+        const metadataFields = [
+            'parentId', 'parentName', 'priority', 'lastModifiedAt', 'completedAt',
+            'isMirror', 'originalId', 'isSharedViaUrl', 'sharedUrl', 'hierarchy', 
+            'siblings', 'siblingCount'
+        ];
+        return metadataFields.includes(field);
+    }
+
+    /**
+     * Hydrate metadata fields from Workflowy List object
+     */
+    private async hydrateMetadataFields(filtered: any, fieldsToInclude: string[], workflowyList: any): Promise<void> {
+        try {
+            // Parent information
+            if (fieldsToInclude.includes('parentId') && workflowyList.parent) {
+                filtered.parentId = workflowyList.parent.id;
+            }
+            if (fieldsToInclude.includes('parentName') && workflowyList.parent) {
+                filtered.parentName = workflowyList.parent.name;
+            }
+
+            // Position and priority
+            if (fieldsToInclude.includes('priority')) {
+                filtered.priority = workflowyList.priority;
+            }
+
+            // Timestamps
+            if (fieldsToInclude.includes('lastModifiedAt')) {
+                filtered.lastModifiedAt = workflowyList.lastModifiedAt?.toISOString();
+            }
+            if (fieldsToInclude.includes('completedAt') && workflowyList.completedAt) {
+                filtered.completedAt = workflowyList.completedAt.toISOString();
+            }
+
+            // Mirror information
+            if (fieldsToInclude.includes('isMirror')) {
+                filtered.isMirror = workflowyList.isMirror;
+            }
+            if (fieldsToInclude.includes('originalId') && workflowyList.originalId) {
+                filtered.originalId = workflowyList.originalId;
+            }
+
+            // Sharing information
+            if (fieldsToInclude.includes('isSharedViaUrl')) {
+                filtered.isSharedViaUrl = workflowyList.isSharedViaUrl;
+            }
+            if (fieldsToInclude.includes('sharedUrl') && workflowyList.sharedUrl) {
+                filtered.sharedUrl = workflowyList.sharedUrl;
+            }
+
+            // Complex computed fields
+            if (fieldsToInclude.includes('hierarchy')) {
+                filtered.hierarchy = await this.getNodeHierarchy(workflowyList);
+            }
+            if (fieldsToInclude.includes('siblings')) {
+                filtered.siblings = await this.getNodeSiblings(workflowyList);
+            }
+            if (fieldsToInclude.includes('siblingCount')) {
+                filtered.siblingCount = workflowyList.parent ? workflowyList.parent.items.length : 0;
+            }
+        } catch (error: any) {
+            this.structuredLogger.warn('Failed to hydrate some metadata fields', { 
+                nodeId: filtered.id,
+                error: error.message 
+            });
+            // Don't throw - partial metadata is better than no data
+        }
+    }
+
+    /**
+     * Get full hierarchy path from root to node
+     */
+    private async getNodeHierarchy(workflowyList: any): Promise<string[]> {
+        const path: string[] = [];
+        let current = workflowyList;
+        
+        while (current && current.parent) {
+            path.unshift(current.parent.name);
+            current = current.parent;
+        }
+        
+        return path;
+    }
+
+    /**
+     * Get sibling nodes at the same level
+     */
+    private async getNodeSiblings(workflowyList: any): Promise<any[]> {
+        if (!workflowyList.parent) {
+            return [];
+        }
+        
+        return workflowyList.parent.items
+            .filter((sibling: any) => sibling.id !== workflowyList.id)
+            .map((sibling: any) => ({
+                id: sibling.id,
+                name: sibling.name,
+                priority: sibling.priority
+            }));
     }
 
     /**
@@ -248,11 +390,14 @@ class WorkflowyClient {
             const { wf } = await this.createAuthenticatedClient(username, password);
             
             try {
-                const t = await wf.getDocument();
+                const doc = await wf.getDocument();
                 
-                const items = t.root.items;
+                // Check if metadata fields are requested
+                const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
+                
+                const items = doc.root.items;
                 let results = [];
-                let stack = [...t.root.items];
+                let stack = [...doc.root.items];
                 let nodesExamined = 0;
                 
                 while (stack.length > 0 && results.length < maxResults) {
@@ -260,9 +405,10 @@ class WorkflowyClient {
                     nodesExamined++;
                     
                     if (current!.name.toLowerCase().includes(query.toLowerCase())) {
-                        // Create filtered node with depth and field control
+                        // Create filtered node with depth and field control and metadata hydration
                         const fullNode = current!.toJson();
-                        const nodeJson = this.createFilteredNode(fullNode, depth, includeFields, 0, previewLength);
+                        const workflowyList = needsMetadata ? current : undefined;
+                        const nodeJson = await this.createFilteredNode(fullNode, depth, includeFields, 0, previewLength, workflowyList);
                         results.push(nodeJson);
                     }
                     if (current!.items && results.length < maxResults) {
@@ -290,7 +436,8 @@ class WorkflowyClient {
                     nodesExamined,
                     estimatedTokens,
                     maxResults,
-                    depth
+                    depth,
+                    metadataHydrated: needsMetadata
                 });
 
                 return results;
@@ -495,9 +642,13 @@ class WorkflowyClient {
             throw new Error(`Node with ID ${nodeId} not found.`);
         }
 
-        // Convert to JSON and apply filtering
+        // Check if metadata fields are requested
+        const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
+
+        // Convert to JSON and apply filtering with metadata hydration
         const nodeJson = node.toJson();
-        return this.createFilteredNode(nodeJson, maxDepth, includeFields, 0, previewLength);
+        const workflowyList = needsMetadata ? node : undefined;
+        return await this.createFilteredNode(nodeJson, maxDepth, includeFields, 0, previewLength, workflowyList);
     }
 
     /**
