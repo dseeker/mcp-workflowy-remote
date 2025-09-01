@@ -8,13 +8,13 @@
 
 ## Context and Problem Statement
 
-With comprehensive Workflowy operations established (ADR-001 through ADR-005), users need robust export and import capabilities to integrate with external systems, create backups, and migrate content between different platforms. The current MCP server lacks any data export/import functionality, limiting interoperability and preventing users from leveraging Workflowy data in broader workflows.
+Workflowy users frequently need to export their lists in different formats for sharing, backup, or integration with other tools. They also need intelligent import capabilities that understand the structure and context of their content. The current MCP server lacks compound operations that combine export/import with content analysis, context preservation, and smart formatting.
 
 What architectural problem are we solving?
-- Missing data portability and interoperability with external systems
-- No programmatic backup and restore capabilities
-- Inability to migrate content between different Workflowy accounts or platforms
-- Lack of integration with external productivity tools and document formats
+- **Context-Aware Export**: Simple exports lose important Workflowy context like mirrors, completion dates, hierarchy relationships
+- **Smart Import Processing**: Imported content needs intelligent parsing to recreate appropriate list structures
+- **Format Intelligence**: Different export contexts (backup vs sharing vs integration) need different levels of detail
+- **Content Enhancement**: Exports could be enhanced with backlinks, metadata, and cross-references automatically
 
 ## Decision Drivers
 
@@ -175,33 +175,49 @@ Total Estimated: ~42,000 tokens
 
 ## Implementation Notes
 
-### Key Changes Required
-1. **export_subtree operation** - Export with multiple format support - **Est: 2,500 tokens**
-2. **import_subtree operation** - Import with format detection and validation - **Est: 3,000 tokens**
-3. **export_filtered operation** - Selective export with filtering criteria - **Est: 2,000 tokens**
-4. **Format converter framework** - Extensible format conversion system - **Est: 7,000 tokens**
-5. **Import validation system** - Format validation and error handling - **Est: 2,000 tokens**
-6. **Comprehensive testing suite** - ~40 test cases for format scenarios - **Est: 3,500 tokens**
+### Key Compound Operations Required
 
-### Export/Import System Architecture
+1. **export_with_context()** - Export with backlinks, mirrors, and relationships - **Est: 3,000 tokens**
+2. **capture_structured_info()** - Parse and import unstructured text into organized lists - **Est: 3,500 tokens**  
+3. **create_status_report()** - Generate formatted reports from list data - **Est: 2,800 tokens**
+4. **smart_backup_export()** - Context-aware backup with restoration metadata - **Est: 2,500 tokens**
+5. **import_with_intelligence()** - Smart parsing that recreates appropriate structures - **Est: 3,200 tokens**
+6. **Comprehensive testing suite** - ~30 test cases for intelligent export/import - **Est: 3,000 tokens**
 
-**Format Support Matrix**:
+### Intelligent Export/Import Architecture
+
+**Context-Aware Export Operation**:
 ```typescript
-enum ExportFormat {
-  OPML = 'opml',
-  JSON = 'json',
-  MARKDOWN = 'markdown',
-  PLAIN_TEXT = 'text',
-  CSV = 'csv'
-}
-
-interface ExportOptions {
-  format: ExportFormat;
-  includeCompleted?: boolean;
-  includeNotes?: boolean;
-  maxDepth?: number;
-  dateRange?: { from: Date; to: Date };
-  pattern?: string | RegExp;
+async export_with_context({
+  nodeId: "research-notes",
+  includeBacklinks: true,
+  expandMirrors: true,
+  format: "markdown"
+}): Promise<EnhancedExportResult> {
+  // Internally orchestrates:
+  // 1. get_node_by_id() with full depth
+  // 2. search_nodes() to find all items that reference this node
+  // 3. resolve_mirror() for any mirror items to get original content
+  // 4. export_subtree() with enhanced content including backlinks
+  
+  const mainContent = await this.getNodeById(nodeId, { maxDepth: -1 });
+  const backlinks = await this.findBacklinksTo(nodeId);
+  const mirrorContent = await this.resolveMirrorReferences(mainContent);
+  
+  const enhancedContent = this.mergeContentWithContext(
+    mainContent, 
+    backlinks, 
+    mirrorContent
+  );
+  
+  return {
+    content: enhancedContent.toMarkdown(),
+    metadata: {
+      backlinksFound: backlinks.length,
+      mirrorsExpanded: mirrorContent.length,
+      exportDate: new Date()
+    }
+  };
 }
 
 interface ImportOptions {
