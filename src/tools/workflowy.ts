@@ -8,7 +8,7 @@ export const workflowyTools: Record<string, any> = {
     inputSchema: {
       parentId: z.string().optional().describe("ID of the parent node to list children from. If omitted, returns root nodes."),
       maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Available: id, name, note, isCompleted (default: id, name)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: id, name)"),
       preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
     },
     handler: async ({ parentId, maxDepth, includeFields, preview, username, password }: { parentId?: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
@@ -49,7 +49,7 @@ export const workflowyTools: Record<string, any> = {
       query: z.string().describe("Search query to find matching nodes"),
       limit: z.number().optional().describe("Maximum number of results to return (default: 10)"),
       maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Available: id, name, note, isCompleted (default: all)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)"),
       preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
     },
     annotations: {
@@ -271,7 +271,7 @@ export const workflowyTools: Record<string, any> = {
     inputSchema: {
       nodeId: z.string().describe("ID of the node to retrieve"),
       maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Available: id, name, note, isCompleted (default: all)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)"),
       preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
     },
     annotations: {
