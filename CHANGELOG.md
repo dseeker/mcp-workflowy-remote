@@ -1,3 +1,10 @@
+# [0.9.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.3...v0.9.0) (2025-09-11)
+
+
+### Features
+
+* add Anthropic custom connector support with token-based authentication ([ca8203e](https://github.com/dseeker/mcp-workflowy-remote/commit/ca8203e48544c05ed23ef915c8f3a775c6c54985))
+
 ## [0.8.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.2...v0.8.3) (2025-09-01)
 
 ## [0.8.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.1...v0.8.2) (2025-09-01)
