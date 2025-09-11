@@ -14,9 +14,35 @@ The Model Context Protocol (MCP) is a standardized way for AI models to interact
 
 ## 🚀 Quick Start
 
-### Option 1: Remote Server (Recommended)
+### Option 1: Anthropic Custom Connector (Recommended) 🎯
 
-Use our hosted server - no setup required:
+**For Claude Pro, Max, Team, or Enterprise users** - Connect your Workflowy account directly to Claude:
+
+#### Step 1: Generate Your Authentication Token
+```bash
+curl -X POST https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
+```
+
+#### Step 2: Configure in Claude
+1. Go to **Claude Settings** → **Connectors** → **Add Connector**
+2. **Server URL**: `https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp`
+3. **Authentication**: Bearer Token
+4. **API Key**: Use the token from Step 1
+5. **Test & Grant Permissions**
+
+#### Step 3: Start Using
+Ask Claude natural language questions like:
+- *"Show me all my project notes in Workflowy"*
+- *"Create a new task under my Work list"*
+- *"Search for meeting notes from last week"*
+
+📖 **[Complete Setup Guide →](docs/ANTHROPIC_CONNECTOR_SETUP.md)**
+
+### Option 2: Remote Server (Claude Code CLI)
+
+Use our hosted server with Claude Code CLI:
 
 ```bash
 # Add the remote MCP server using Claude Code CLI
@@ -26,7 +52,7 @@ claude mcp add --transport http workflowy-remote https://mcp-workflowy-remote.da
 claude mcp list
 ```
 
-### Option 2: Local Server
+### Option 3: Local Server
 
 ![NPM Version](https://img.shields.io/npm/v/mcp-workflowy) ![NPM Downloads](https://img.shields.io/npm/dm/mcp-workflowy)
 
@@ -41,9 +67,10 @@ npx mcp-workflowy server start
 
 ## ✨ Features
 
+- **🎯 Anthropic Custom Connector**: Native integration with Claude Pro/Max/Team/Enterprise
 - **🔗 Workflowy Integration**: Connect to your Workflowy account with username/password
-- **🌐 Multiple Deployment Options**: Local server or remote Cloudflare Workers
-- **🔒 Secure Authentication**: API key protection with client-provided credentials
+- **🌐 Multiple Deployment Options**: Anthropic connector, local server, or remote Cloudflare Workers
+- **🔒 Secure Authentication**: Token-based authentication with client-provided credentials
 - **⚡ Intelligent Metadata Hydration**: Enriched responses with context like parentName, hierarchy, siblings
 - **🎯 Workflowy-Focused Operations**: Operations designed for real Workflowy usage patterns
 - **🛠️ Complete CRUD Operations**: Create, read, update, delete, and move nodes

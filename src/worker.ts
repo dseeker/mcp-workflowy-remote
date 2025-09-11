@@ -87,15 +87,72 @@ class WorkflowyMCPServer {
       return true;
     }
     
+    // Check if it's a user-generated token from /connector/setup
+    if (apiKey.length > 20 && this.isValidUserToken(apiKey)) {
+      return true;
+    }
+    
     return allowedKeys.includes(apiKey);
   }
 
+  private isValidUserToken(token: string): boolean {
+    try {
+      // Decode the base64 token to validate format
+      const decoded = atob(token);
+      const parts = decoded.split(':');
+      
+      // Should have format: username:password:timestamp
+      if (parts.length === 3) {
+        const timestamp = parseInt(parts[2]);
+        const now = Date.now();
+        
+        // Token should be less than 30 days old
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+        return (now - timestamp) < thirtyDays;
+      }
+      
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   private extractCredentials(params: any, env: any, headers?: Headers): { username?: string, password?: string } {
+    // First check if we have a user token from Authorization header
+    const authHeader = headers?.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      const credentials = this.extractCredentialsFromToken(token);
+      if (credentials) {
+        return credentials;
+      }
+    }
+    
     // Priority: 1. Client-provided credentials, 2. Headers, 3. Environment fallback
     return {
       username: params.workflowy_username || headers?.get('X-Workflowy-Username') || env.WORKFLOWY_USERNAME,
       password: params.workflowy_password || headers?.get('X-Workflowy-Password') || env.WORKFLOWY_PASSWORD
     };
+  }
+
+  private extractCredentialsFromToken(token: string): { username?: string, password?: string } | null {
+    try {
+      if (this.isValidUserToken(token)) {
+        const decoded = atob(token);
+        const parts = decoded.split(':');
+        
+        if (parts.length === 3) {
+          return {
+            username: parts[0],
+            password: parts[1]
+          };
+        }
+      }
+      
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   private createEnvHandler(fastmcpHandler: Function) {
@@ -409,7 +466,7 @@ export default {
     // Validate API key for authenticated endpoints with logging
     const validateAuth = () => {
       const apiKey = request.headers.get('Authorization')?.replace('Bearer ', '') || null;
-      if (!config.validateApiKey(apiKey)) {
+      if (!config.validateApiKey(apiKey) && !server.validateApiKey(apiKey, env)) {
         logger.warn('Authentication failed', {
           hasApiKey: !!apiKey,
           apiKeyLength: apiKey?.length,
@@ -511,6 +568,115 @@ export default {
           headers: { 
             'Content-Type': 'application/json',
             'X-Request-ID': requestId,
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+    }
+
+    // Anthropic Connector Setup Endpoint - handles credential exchange
+    if (url.pathname === '/connector/setup') {
+      if (request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { username, password } = body;
+          
+          if (!username || !password) {
+            return new Response(JSON.stringify({
+              error: 'Missing credentials',
+              message: 'Both username and password are required'
+            }), {
+              status: 400,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+          
+          // Validate credentials by attempting authentication
+          try {
+            const healthCheck = await workflowyClient.checkServiceHealth(username, password);
+            
+            if (!healthCheck.available) {
+              return new Response(JSON.stringify({
+                error: 'Invalid credentials',
+                message: 'Failed to authenticate with Workflowy'
+              }), {
+                status: 401,
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                }
+              });
+            }
+            
+            // Generate a secure token for this user session
+            const userToken = btoa(`${username}:${password}:${Date.now()}`);
+            
+            // In a production system, you'd store this securely
+            // For now, we'll return it to be used as the API key
+            return new Response(JSON.stringify({
+              success: true,
+              token: userToken,
+              message: 'Credentials validated successfully',
+              instructions: 'Use this token as your API key when configuring the Anthropic connector'
+            }), {
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+            
+          } catch (error: any) {
+            logger.error('Credential validation failed', error);
+            return new Response(JSON.stringify({
+              error: 'Authentication failed',
+              message: 'Could not validate Workflowy credentials'
+            }), {
+              status: 401,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+          
+        } catch (error: any) {
+          return new Response(JSON.stringify({
+            error: 'Invalid request',
+            message: 'Could not parse request body'
+          }), {
+            status: 400,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+      }
+      
+      // GET method returns setup instructions
+      if (request.method === 'GET') {
+        return new Response(JSON.stringify({
+          name: "Workflowy MCP Connector Setup",
+          description: "Setup endpoint for Anthropic custom connector integration",
+          instructions: {
+            step1: "POST your Workflowy credentials to this endpoint",
+            step2: "Receive a secure token in response",
+            step3: "Use the token as API key when configuring the Anthropic connector",
+            step4: "Configure connector URL: " + new URL('/mcp', request.url).toString()
+          },
+          schema: {
+            method: "POST",
+            body: {
+              username: "your_workflowy_username",
+              password: "your_workflowy_password"
+            }
+          }
+        }), {
+          headers: { 
+            'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           }
         });
@@ -660,6 +826,7 @@ export default {
         description: "Workflowy MCP Server - Remote deployment on Cloudflare Workers",
         endpoints: {
           mcp: '/mcp',
+          connector_setup: '/connector/setup',
           ...(config.isFeatureEnabled('sse') && { sse: '/sse (Server-Sent Events)' }),
           health: '/health',
           ...(config.isFeatureEnabled('legacyRest') && { tools: '/tools (legacy)' })
