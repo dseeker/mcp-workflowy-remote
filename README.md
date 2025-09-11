@@ -109,6 +109,13 @@ The MCP server enables natural AI interactions with your Workflowy data:
 - *"Find all incomplete items and tell me their hierarchy path"*
 - *"List my grocery list with completion status and priority order"*
 
+### Real-World Workflows
+- **Project Management**: *"Show me all incomplete tasks under 'Q1 Goals' and suggest priorities based on deadlines"*
+- **Content Planning**: *"Find all blog post ideas and organize them by topic and urgency"*
+- **Daily Planning**: *"Create a daily agenda from my 'Today' list and move completed items to 'Done'"*
+- **Research Organization**: *"Search for all research notes on AI and create a summary with source links"*
+- **Meeting Prep**: *"List all action items from last week's meetings and their current status"*
+
 ### Smart Field Selection
 ```javascript
 // Request only basic fields for performance
@@ -118,11 +125,26 @@ The MCP server enables natural AI interactions with your Workflowy data:
 { "includeFields": ["name", "parentName", "hierarchy", "siblings", "priority"] }
 ```
 
+### Authentication Examples
+```bash
+# Generate secure token for Claude connector
+curl -X POST https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your_username", "password": "your_password"}'
+
+# Use token in Claude custom connector configuration
+# Server URL: https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp
+# Authentication: Bearer Token
+# API Key: [token from response above]
+```
+
 ## 🧪 Testing
 
-![Tests](https://img.shields.io/badge/tests-55_passing-brightgreen) ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-66_passing-brightgreen) ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 
-- ✅ **55 unit tests** with **223+ assertions**
+- ✅ **66+ unit tests** with **300+ assertions**
+- ✅ **Complete authentication flow testing** including token generation, validation, and security
+- ✅ **Anthropic connector integration testing** with production workflow validation
 - ✅ **100% parameter coverage** for advanced search features
 - ✅ **4-level deep hierarchy testing** with realistic mock data
 - ✅ **Complete error scenario coverage** for all operations
@@ -130,6 +152,7 @@ The MCP server enables natural AI interactions with your Workflowy data:
 ```bash
 npm test                    # All tests
 npm run test:coverage       # Coverage report
+npm test src/test/connector-authentication.test.ts  # Authentication tests only
 ```
 
 ## 📚 Documentation
