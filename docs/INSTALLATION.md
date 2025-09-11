@@ -4,15 +4,48 @@ This guide covers both local and remote installation options for the Workflowy M
 
 ## Installation Options
 
-Choose between **Local Server** (runs on your machine) or **Remote Server** (hosted on Cloudflare Workers).
+Choose from **Anthropic Custom Connector** (easiest), **Remote Server** (Claude Code CLI), or **Local Server** (self-hosted).
 
-## Option 1: 🚀 Remote MCP Server (Recommended)
+## Option 1: 🎯 Anthropic Custom Connector (Recommended)
+
+**Benefits:** Direct integration with Claude, no CLI required, official connector support
+
+**Prerequisites:**
+- Claude Pro, Max, Team, or Enterprise plan
+- A Workflowy account
+
+### Complete Setup Process
+
+**Step 1: Generate Authentication Token**
+```bash
+curl -X POST https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
+```
+
+**Step 2: Configure Custom Connector**
+1. Open [Claude](https://claude.ai)
+2. Go to **Settings** → **Connectors**
+3. Click **Add Connector** → **Custom Connector**
+4. Enter configuration:
+   - **Name**: Workflowy
+   - **Server URL**: `https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp`
+   - **Authentication Type**: Bearer Token
+   - **API Key**: Paste the token from Step 1
+5. Click **Test Connection** and **Grant Permissions**
+
+**Step 3: Start Using**
+Ask Claude natural language questions about your Workflowy data!
+
+📖 **[Detailed Connector Setup Guide →](ANTHROPIC_CONNECTOR_SETUP.md)**
+
+## Option 2: 🚀 Remote Server (Claude Code CLI)
 
 **Benefits:** No local setup required, works from anywhere, secure cloud deployment
 
 **Prerequisites:**
 - A Workflowy account
-- Claude Code or Claude Desktop
+- Claude Code CLI
 
 ### Quick Setup
 
@@ -42,7 +75,7 @@ claude mcp list
 }
 ```
 
-## Option 2: 🏠 Local MCP Server
+## Option 3: 🏠 Local MCP Server
 
 **Benefits:** Full control, runs locally, no external dependencies
 
