@@ -1,3 +1,10 @@
+## [0.10.4](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.3...v0.10.4) (2025-09-15)
+
+
+### Bug Fixes
+
+* update OAuth deployment wrangler commands to use new CLI syntax ([7991605](https://github.com/dseeker/mcp-workflowy-remote/commit/79916056e849e373df57e5508903c80bb8340e12))
+
 ## [0.10.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.2...v0.10.3) (2025-09-15)
 
 
