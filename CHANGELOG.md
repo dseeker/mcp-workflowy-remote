@@ -1,3 +1,15 @@
+# [0.10.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.9.1...v0.10.0) (2025-09-15)
+
+
+### Bug Fixes
+
+* correct OAuth provider library dependency ([d31c04f](https://github.com/dseeker/mcp-workflowy-remote/commit/d31c04f5d5307e5420aebfb994c7a6db965abd27))
+
+
+### Features
+
+* integrate OAuth 2.0 authentication directly into existing worker ([ccaf677](https://github.com/dseeker/mcp-workflowy-remote/commit/ccaf677c37ba965752a5c960c1f3f2971879b3f1))
+
 ## [0.9.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.9.0...v0.9.1) (2025-09-12)
 
 # [0.9.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.3...v0.9.0) (2025-09-11)
