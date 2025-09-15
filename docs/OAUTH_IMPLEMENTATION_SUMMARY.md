@@ -49,7 +49,7 @@ Created a dual-authentication system that supports:
 
 ### Modified Files
 
-4. **`package.json`** - Added workers-oauth-provider dependency
+4. **`package.json`** - Added @cloudflare/workers-oauth-provider dependency (v0.0.8)
 5. **`wrangler.toml`** - Added KV namespace bindings for OAuth storage
 6. **`README.md`** - Updated with OAuth features and documentation links
 
@@ -158,7 +158,7 @@ Users can migrate gradually:
 - **Files Added**: 3 new files (oauth-wrapper.ts, setup-oauth.sh, OAUTH_SETUP.md)
 - **Files Modified**: 3 existing files (package.json, wrangler.toml, README.md)
 - **Lines of Code**: ~800 lines of new OAuth implementation
-- **Dependencies Added**: 1 (workers-oauth-provider)
+- **Dependencies Added**: 1 (@cloudflare/workers-oauth-provider v0.0.8)
 - **New Endpoints**: 4 OAuth endpoints (authorize, token, metadata, register-ready)
 
 ## 🎯 User Value Delivered

@@ -186,6 +186,11 @@ The project supports two distinct runtime environments:
 **Workflowy Integration**:
 - `workflowy` - Third-party Workflowy API client library
 
+**OAuth Implementation**:
+- `@cloudflare/workers-oauth-provider` - **CRITICAL**: Use ONLY the official Cloudflare library (v0.0.8+)
+  - ❌ **NEVER use**: `workers-oauth-provider` (unofficial/deprecated)
+  - ✅ **ALWAYS use**: `@cloudflare/workers-oauth-provider`
+
 **Schema & Validation**:
 - `zod` - Schema validation for tool parameters
 - `@valibot/to-json-schema` - Convert Zod schemas to JSON Schema for MCP
