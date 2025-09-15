@@ -258,20 +258,20 @@ jobs:
           echo "🔐 Deploying OAuth-enabled version..."
           
           # Check if OAuth KV namespaces exist, create if needed
-          if ! npx wrangler kv:namespace list | grep -q "OAUTH_KV"; then
+          if ! npx wrangler kv namespace list | grep -q "OAUTH_KV"; then
             echo "📦 Creating OAuth KV namespaces..."
             
-            PROD_OUTPUT=$(npx wrangler kv:namespace create "OAUTH_KV" --preview false)
+            PROD_OUTPUT=$(npx wrangler kv namespace create "OAUTH_KV" 2>&1)
             PROD_KV_ID=$(echo "$PROD_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
             
-            PREVIEW_OUTPUT=$(npx wrangler kv:namespace create "OAUTH_KV" --preview)
+            PREVIEW_OUTPUT=$(npx wrangler kv namespace create "OAUTH_KV" --preview 2>&1)
             PREVIEW_KV_ID=$(echo "$PREVIEW_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
             
             echo "✅ Created KV namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
           else
             echo "✅ OAuth KV namespaces already exist"
-            PROD_KV_ID=$(npx wrangler kv:namespace list | grep "OAUTH_KV" | grep -v "preview" | jq -r '.id')
-            PREVIEW_KV_ID=$(npx wrangler kv:namespace list | grep "OAUTH_KV" | grep "preview" | jq -r '.id')
+            PROD_KV_ID=$(npx wrangler kv namespace list | grep "OAUTH_KV" | grep -v "preview" | jq -r '.id')
+            PREVIEW_KV_ID=$(npx wrangler kv namespace list | grep "OAUTH_KV" | grep "preview" | jq -r '.id')
             echo "📋 Using existing namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
           fi
           
