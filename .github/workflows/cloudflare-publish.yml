@@ -99,7 +99,31 @@ jobs:
       - name: Deploy to Production
         id: deploy
         run: |
-          # Deploy to production first
+          # Create OAuth KV namespaces if they don't exist
+          echo "📦 Setting up OAuth KV namespaces..."
+          if ! npx wrangler kv:namespace list | grep -q "OAUTH_KV"; then
+            echo "📦 Creating OAuth KV namespaces..."
+            
+            PROD_OUTPUT=$(npx wrangler kv:namespace create "OAUTH_KV" --preview false)
+            PROD_KV_ID=$(echo "$PROD_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
+            
+            PREVIEW_OUTPUT=$(npx wrangler kv:namespace create "OAUTH_KV" --preview)
+            PREVIEW_KV_ID=$(echo "$PREVIEW_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
+            
+            echo "✅ Created KV namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
+          else
+            echo "✅ OAuth KV namespaces already exist"
+            PROD_KV_ID=$(npx wrangler kv:namespace list | grep "OAUTH_KV" | grep -v "preview" | jq -r '.id')
+            PREVIEW_KV_ID=$(npx wrangler kv:namespace list | grep "OAUTH_KV" | grep "preview" | jq -r '.id')
+            echo "📋 Using existing namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
+          fi
+          
+          # Update wrangler.toml with actual KV namespace IDs
+          echo "🔧 Updating wrangler.toml with KV namespace IDs..."
+          sed -i "s/your-kv-namespace-id/$PROD_KV_ID/g" wrangler.toml
+          sed -i "s/your-preview-kv-namespace-id/$PREVIEW_KV_ID/g" wrangler.toml
+          
+          # Deploy to production
           VERSION="${{ needs.version.outputs.version || 'dev' }}"
           echo "🚀 Deploying v$VERSION to production..."
           
