@@ -729,7 +729,119 @@ export default {
       }
     }
 
-    // OAuth Authorization Server Metadata (RFC 8414)
+
+    // Temporary debug endpoint to check API key configuration
+    if (url.pathname === '/debug-keys') {
+      const allowedKeys = env.ALLOWED_API_KEYS?.split(',') || [];
+      return new Response(JSON.stringify({
+        hasApiKeys: !!env.ALLOWED_API_KEYS,
+        keyCount: allowedKeys.length,
+        firstKeyLength: allowedKeys.length > 0 ? allowedKeys[0]?.trim()?.length : 0,
+        environment: config.getEnvironment()
+      }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // MCP endpoint - implements MCP HTTP transport protocol
+    if (url.pathname === '/mcp') {
+      // Validate authentication for MCP endpoint
+      const authError = validateAuth();
+      if (authError) return authError;
+
+      if (request.method === 'POST') {
+        try {
+          const body = await request.text();
+          
+          // Handle both single messages and batched messages
+          const messages = body.trim().split('\n').filter(line => line.trim());
+          const responses: JsonRpcResponse[] = [];
+
+          for (const messageText of messages) {
+            const message = JSON.parse(messageText);
+            
+            // Handle JSON-RPC request with logging
+            if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
+              const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers, logger);
+              responses.push(response);
+            }
+          }
+
+          // Return responses as JSON with request tracking
+          const duration = Date.now() - startTime;
+          logger.performance('MCP batch request', duration, {
+            messageCount: messages.length,
+            responseCount: responses.length
+          });
+          
+          if (responses.length === 1) {
+            return new Response(JSON.stringify(responses[0]), {
+              headers: { 
+                'Content-Type': 'application/json',
+                'X-Request-ID': requestId,
+                'X-Response-Time': duration.toString(),
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          } else {
+            return new Response(responses.map(r => JSON.stringify(r)).join('\n'), {
+              headers: { 
+                'Content-Type': 'application/json',
+                'X-Request-ID': requestId,
+                'X-Response-Time': duration.toString(),
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+          
+        } catch (error: any) {
+          const duration = Date.now() - startTime;
+          logger.error('MCP request parsing failed', error, { duration });
+          
+          return new Response(JSON.stringify({
+            jsonrpc: "2.0",
+            id: null,
+            error: {
+              code: -32700,
+              message: `Parse error: ${error.message}`
+            },
+            requestId
+          }), {
+            status: 400,
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-Request-ID': requestId,
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+      }
+
+      // GET method for MCP endpoint (for session resumption)
+      if (request.method === 'GET') {
+        return new Response(JSON.stringify({
+          jsonrpc: "2.0",
+          method: "notifications/initialized",
+          params: {
+            protocolVersion: server.protocolVersion,
+            serverInfo: {
+              name: server.name,
+              version: server.version
+            }
+          }
+        }), {
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+    }
+
+    // OAuth Authorization Server Metadata (RFC 8414) - No authentication required
     if (url.pathname === '/.well-known/oauth-authorization-server') {
       const baseUrl = `${url.protocol}//${url.host}`;
       return new Response(JSON.stringify({
@@ -748,7 +860,7 @@ export default {
       });
     }
 
-    // OAuth Authorization Endpoint
+    // OAuth Authorization Endpoint - No authentication required
     if (url.pathname === '/oauth/authorize') {
       if (request.method === 'GET') {
         const params = url.searchParams;
@@ -866,7 +978,7 @@ export default {
       }
     }
 
-    // OAuth Token Endpoint
+    // OAuth Token Endpoint - No authentication required
     if (url.pathname === '/oauth/token') {
       if (request.method === 'POST') {
         try {
@@ -928,117 +1040,6 @@ export default {
             status: 500, headers: { 'Content-Type': 'application/json' }
           });
         }
-      }
-    }
-
-    // Temporary debug endpoint to check API key configuration
-    if (url.pathname === '/debug-keys') {
-      const allowedKeys = env.ALLOWED_API_KEYS?.split(',') || [];
-      return new Response(JSON.stringify({
-        hasApiKeys: !!env.ALLOWED_API_KEYS,
-        keyCount: allowedKeys.length,
-        firstKeyLength: allowedKeys.length > 0 ? allowedKeys[0]?.trim()?.length : 0,
-        environment: config.getEnvironment()
-      }), {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
-
-    // MCP endpoint - implements MCP HTTP transport protocol
-    if (url.pathname === '/mcp') {
-      // Validate authentication for MCP endpoint
-      const authError = validateAuth();
-      if (authError) return authError;
-
-      if (request.method === 'POST') {
-        try {
-          const body = await request.text();
-          
-          // Handle both single messages and batched messages
-          const messages = body.trim().split('\n').filter(line => line.trim());
-          const responses: JsonRpcResponse[] = [];
-
-          for (const messageText of messages) {
-            const message = JSON.parse(messageText);
-            
-            // Handle JSON-RPC request with logging
-            if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
-              const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers, logger);
-              responses.push(response);
-            }
-          }
-
-          // Return responses as JSON with request tracking
-          const duration = Date.now() - startTime;
-          logger.performance('MCP batch request', duration, {
-            messageCount: messages.length,
-            responseCount: responses.length
-          });
-          
-          if (responses.length === 1) {
-            return new Response(JSON.stringify(responses[0]), {
-              headers: { 
-                'Content-Type': 'application/json',
-                'X-Request-ID': requestId,
-                'X-Response-Time': duration.toString(),
-                'Access-Control-Allow-Origin': '*'
-              }
-            });
-          } else {
-            return new Response(responses.map(r => JSON.stringify(r)).join('\n'), {
-              headers: { 
-                'Content-Type': 'application/json',
-                'X-Request-ID': requestId,
-                'X-Response-Time': duration.toString(),
-                'Access-Control-Allow-Origin': '*'
-              }
-            });
-          }
-          
-        } catch (error: any) {
-          const duration = Date.now() - startTime;
-          logger.error('MCP request parsing failed', error, { duration });
-          
-          return new Response(JSON.stringify({
-            jsonrpc: "2.0",
-            id: null,
-            error: {
-              code: -32700,
-              message: `Parse error: ${error.message}`
-            },
-            requestId
-          }), {
-            status: 400,
-            headers: { 
-              'Content-Type': 'application/json',
-              'X-Request-ID': requestId,
-              'Access-Control-Allow-Origin': '*'
-            }
-          });
-        }
-      }
-
-      // GET method for MCP endpoint (for session resumption)
-      if (request.method === 'GET') {
-        return new Response(JSON.stringify({
-          jsonrpc: "2.0",
-          method: "notifications/initialized",
-          params: {
-            protocolVersion: server.protocolVersion,
-            serverInfo: {
-              name: server.name,
-              version: server.version
-            }
-          }
-        }), {
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
       }
     }
 
