@@ -20,14 +20,14 @@ The Model Context Protocol (MCP) is a standardized way for AI models to interact
 
 #### Step 1: Generate Your Authentication Token
 ```bash
-curl -X POST https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup \
+curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
   -H "Content-Type: application/json" \
   -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
 ```
 
 #### Step 2: Configure in Claude
 1. Go to **Claude Settings** → **Connectors** → **Add Connector**
-2. **Server URL**: `https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp`
+2. **Server URL**: `https://{worker-name}.{cloudflare-account}.workers.dev/mcp`
 3. **Authentication**: Bearer Token
 4. **API Key**: Use the token from Step 1
 5. **Test & Grant Permissions**
@@ -44,13 +44,31 @@ Ask Claude natural language questions like:
 
 Use our hosted server with Claude Code CLI:
 
+#### Step 1: Generate Your Authentication Token
 ```bash
-# Add the remote MCP server using Claude Code CLI
-claude mcp add --transport http workflowy-remote https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp --header "Authorization: Bearer ********="
+curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
+```
+
+Save the returned token from the response.
+
+#### Step 2: Add the MCP Server
+```bash
+# Add using JSON configuration (recommended)
+claude mcp add-json workflowy-remote '{
+  "type": "http", 
+  "url": "https://{worker-name}.{cloudflare-account}.workers.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer YOUR_TOKEN_HERE"
+  }
+}' -s local
 
 # Verify connection
 claude mcp list
 ```
+
+**Expected output:** `workflowy-remote: https://{worker-name}.{cloudflare-account}.workers.dev/mcp (HTTP) - ✓ Connected`
 
 ### Option 3: Local Server
 
@@ -128,12 +146,12 @@ The MCP server enables natural AI interactions with your Workflowy data:
 ### Authentication Examples
 ```bash
 # Generate secure token for Claude connector
-curl -X POST https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup \
+curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
   -H "Content-Type: application/json" \
   -d '{"username": "your_username", "password": "your_password"}'
 
 # Use token in Claude custom connector configuration
-# Server URL: https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp
+# Server URL: https://{worker-name}.{cloudflare-account}.workers.dev/mcp
 # Authentication: Bearer Token
 # API Key: [token from response above]
 ```

@@ -18,6 +18,56 @@ The project documentation is organized as follows:
 - **README-TESTING.md** - Test patterns and mock data structure
 - **adr/** - Architecture Decision Records for feature development and design decisions
 
+## Claude Code CLI Setup
+
+### Quick Setup for Remote Server
+
+If you're using Claude Code CLI and want to connect to the remote Workflowy MCP server:
+
+```bash
+# Step 1: Generate authentication token
+curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
+
+# Step 2: Add the MCP server (replace YOUR_TOKEN_HERE with token from step 1)
+claude mcp add-json workflowy-remote '{
+  "type": "http",
+  "url": "https://{worker-name}.{cloudflare-account}.workers.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer YOUR_TOKEN_HERE"
+  }
+}' -s local
+
+# Step 3: Verify connection
+claude mcp list
+```
+
+**Expected output:** `workflowy-remote: https://{worker-name}.{cloudflare-account}.workers.dev/mcp (HTTP) - ✓ Connected`
+
+### Troubleshooting Claude Code CLI Connection
+
+If the connection fails:
+
+1. **Check token validity:**
+   ```bash
+   curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/mcp \
+     -H "Authorization: Bearer YOUR_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}'
+   ```
+
+2. **Remove and re-add if needed:**
+   ```bash
+   claude mcp remove workflowy-remote -s local
+   # Then repeat setup with fresh token
+   ```
+
+3. **Check server health:**
+   ```bash
+   curl https://{worker-name}.{cloudflare-account}.workers.dev/health
+   ```
+
 ## Common Development Commands
 
 ### Building

@@ -157,12 +157,12 @@ This setup has been tested with real Workflowy data including:
 ## Server Deployment URLs
 
 ### Production
-- **Main Server**: `https://mcp-workflowy-remote.daniel-bca.workers.dev`
-- **Setup Endpoint**: `https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup`
-- **MCP Endpoint**: `https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp`
+- **Main Server**: `https://{worker-name}.{cloudflare-account}.workers.dev`
+- **Setup Endpoint**: `https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup`
+- **MCP Endpoint**: `https://{worker-name}.{cloudflare-account}.workers.dev/mcp`
 
 ### Development/Testing
-- **Preview Server**: `https://preview-mcp-workflowy-remote.daniel-bca.workers.dev`
+- **Preview Server**: `https://preview-{worker-name}.{cloudflare-account}.workers.dev`
 - Replace with your actual deployment URLs
 
 ## API Reference
@@ -247,7 +247,7 @@ The connector is deployed through automated CI/CD:
 5. **Health Verification**: Post-deployment health checks and validation
 
 **Deployment URLs:**
-- **Production**: `https://mcp-workflowy-remote.daniel-bca.workers.dev`
+- **Production**: `https://{worker-name}.{cloudflare-account}.workers.dev`
 - **Health Check**: `GET /health` for service status
 - **Setup Endpoint**: `POST /connector/setup` for token generation
 
