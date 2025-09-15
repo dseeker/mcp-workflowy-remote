@@ -228,6 +228,121 @@ jobs:
         env:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
+      - name: Deploy OAuth-enabled version
+        id: deploy-oauth
+        run: |
+          echo "🔐 Deploying OAuth-enabled version..."
+          
+          # Check if OAuth KV namespaces exist, create if needed
+          if ! npx wrangler kv:namespace list | grep -q "OAUTH_KV"; then
+            echo "📦 Creating OAuth KV namespaces..."
+            
+            PROD_OUTPUT=$(npx wrangler kv:namespace create "OAUTH_KV" --preview false)
+            PROD_KV_ID=$(echo "$PROD_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
+            
+            PREVIEW_OUTPUT=$(npx wrangler kv:namespace create "OAUTH_KV" --preview)
+            PREVIEW_KV_ID=$(echo "$PREVIEW_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
+            
+            echo "✅ Created KV namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
+          else
+            echo "✅ OAuth KV namespaces already exist"
+            PROD_KV_ID=$(npx wrangler kv:namespace list | grep "OAUTH_KV" | grep -v "preview" | jq -r '.id')
+            PREVIEW_KV_ID=$(npx wrangler kv:namespace list | grep "OAUTH_KV" | grep "preview" | jq -r '.id')
+            echo "📋 Using existing namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
+          fi
+          
+          # Create OAuth wrangler config
+          cat > wrangler.oauth.toml << EOF
+          name = "mcp-workflowy-remote-oauth"
+          compatibility_date = "2024-12-01"
+          compatibility_flags = ["nodejs_compat", "nodejs_als"]
+          
+          main = "dist/oauth-wrapper.js"
+          
+          kv_namespaces = [
+            { binding = "OAUTH_KV", id = "$PROD_KV_ID", preview_id = "$PREVIEW_KV_ID" }
+          ]
+          
+          vars = { ENVIRONMENT = "production", DEBUG = "false", OAUTH_ENABLED = "true" }
+          EOF
+          
+          # Build OAuth wrapper
+          echo "🔨 Building OAuth wrapper..."
+          npm run build:oauth
+          
+          # Deploy OAuth version
+          if OAUTH_DEPLOY_OUTPUT=$(npx wrangler deploy --config wrangler.oauth.toml 2>&1); then
+            echo "✅ OAuth deployment successful:"
+            echo "$OAUTH_DEPLOY_OUTPUT"
+          else
+            echo "❌ OAuth deployment failed"
+            echo "$OAUTH_DEPLOY_OUTPUT"
+            exit 1
+          fi
+          
+          # Extract OAuth worker URL
+          OAUTH_WORKER_URL=$(echo "$OAUTH_DEPLOY_OUTPUT" | grep -o 'https://[a-zA-Z0-9.-]*\.workers\.dev' | head -1)
+          echo "oauth-worker-url=$OAUTH_WORKER_URL" >> $GITHUB_OUTPUT
+          
+          # Upload secrets to OAuth worker
+          echo "🔑 Uploading secrets to OAuth worker..."
+          echo "ALLOWED_API_KEYS = $ALLOWED_API_KEYS" | npx wrangler secret bulk --config wrangler.oauth.toml
+          
+          echo "✅ OAuth worker deployed to: $OAUTH_WORKER_URL"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
+
+      - name: Verify OAuth deployment
+        run: |
+          OAUTH_WORKER_URL="${{ steps.deploy-oauth.outputs.oauth-worker-url }}"
+          
+          if [ -z "$OAUTH_WORKER_URL" ]; then
+            echo "❌ Failed to capture OAuth worker URL"
+            exit 1
+          fi
+          
+          echo "🧪 Verifying OAuth deployment at: $OAUTH_WORKER_URL"
+          
+          # Wait for deployment to propagate
+          sleep 30
+          
+          # Test OAuth health endpoint
+          HEALTH_RESPONSE=$(curl -s "$OAUTH_WORKER_URL/health" 2>/dev/null) || (echo "❌ OAuth health check failed" && exit 1)
+          OAUTH_SUPPORTED=$(echo "$HEALTH_RESPONSE" | jq -r '.oauth.supported // false')
+          
+          if [ "$OAUTH_SUPPORTED" = "true" ]; then
+            echo "✅ OAuth health check passed - OAuth supported: $OAUTH_SUPPORTED"
+          else
+            echo "❌ OAuth health check failed - OAuth not supported"
+            exit 1
+          fi
+          
+          # Test OAuth metadata endpoint
+          METADATA_RESPONSE=$(curl -s "$OAUTH_WORKER_URL/.well-known/oauth-authorization-server")
+          AUTHORIZATION_ENDPOINT=$(echo "$METADATA_RESPONSE" | jq -r '.authorization_endpoint // "missing"')
+          
+          if [ "$AUTHORIZATION_ENDPOINT" != "missing" ]; then
+            echo "✅ OAuth metadata endpoint working"
+          else
+            echo "❌ OAuth metadata endpoint failed"
+            exit 1
+          fi
+          
+          echo "🎉 OAuth deployment verification passed!"
+          echo ""
+          echo "📋 Claude Web Custom Connector Setup:"
+          echo "   • Name: Workflowy MCP"  
+          echo "   • Remote MCP server URL: $OAUTH_WORKER_URL/mcp"
+          echo "   • OAuth Client ID: (leave empty)"
+          echo "   • OAuth Client Secret: (leave empty)"
+          echo ""
+          echo "🔗 OAuth Endpoints:"
+          echo "   • Authorization: $OAUTH_WORKER_URL/oauth/authorize"
+          echo "   • Token: $OAUTH_WORKER_URL/oauth/token"
+          echo "   • Metadata: $OAUTH_WORKER_URL/.well-known/oauth-authorization-server"
+
       - name: Collect Worker Logs with Real-time Output
         continue-on-error: true
         env:

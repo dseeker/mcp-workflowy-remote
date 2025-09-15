@@ -4,6 +4,11 @@ compatibility_flags = ["nodejs_compat", "nodejs_als"]
 
 main = "dist/worker.js"
 
+# KV Namespaces for OAuth storage
+kv_namespaces = [
+  { binding = "OAUTH_KV", id = "your-kv-namespace-id", preview_id = "your-preview-kv-namespace-id" }
+]
+
 # Default configuration (production)
 vars = { ENVIRONMENT = "production", DEBUG = "false" }
 
