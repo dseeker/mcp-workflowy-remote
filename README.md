@@ -14,31 +14,25 @@ The Model Context Protocol (MCP) is a standardized way for AI models to interact
 
 ## 🚀 Quick Start
 
-### Option 1: Anthropic Custom Connector (Recommended) 🎯
+### Option 1: Claude Web Custom Connector (OAuth) 🎯
 
-**For Claude Pro, Max, Team, or Enterprise users** - Connect your Workflowy account directly to Claude:
+**For Claude Pro, Max, Team, or Enterprise users** - Secure OAuth integration:
 
-#### Step 1: Generate Your Authentication Token
-```bash
-curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
-  -H "Content-Type: application/json" \
-  -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
-```
+#### Easy Setup - OAuth Flow
+1. Go to **Claude Settings** → **Connectors** → **Add Connector** → **Custom Connector**
+2. **Name**: `Workflowy MCP`
+3. **Remote MCP server URL**: `https://{worker-name}.{cloudflare-account}.workers.dev/mcp`
+4. **OAuth Client ID**: *(leave empty)*
+5. **OAuth Client Secret**: *(leave empty)*
+6. **Test Connection** → Enter Workflowy credentials in secure form → **Authorize**
 
-#### Step 2: Configure in Claude
-1. Go to **Claude Settings** → **Connectors** → **Add Connector**
-2. **Server URL**: `https://{worker-name}.{cloudflare-account}.workers.dev/mcp`
-3. **Authentication**: Bearer Token
-4. **API Key**: Use the token from Step 1
-5. **Test & Grant Permissions**
-
-#### Step 3: Start Using
+#### Start Using
 Ask Claude natural language questions like:
 - *"Show me all my project notes in Workflowy"*
 - *"Create a new task under my Work list"*
 - *"Search for meeting notes from last week"*
 
-📖 **[Complete Setup Guide →](docs/ANTHROPIC_CONNECTOR_SETUP.md)**
+📖 **[OAuth Setup Guide →](docs/OAUTH_SETUP.md)** | **[Legacy Token Setup →](docs/ANTHROPIC_CONNECTOR_SETUP.md)**
 
 ### Option 2: Remote Server (Claude Code CLI)
 
@@ -85,10 +79,10 @@ npx mcp-workflowy server start
 
 ## ✨ Features
 
-- **🎯 Anthropic Custom Connector**: Native integration with Claude Pro/Max/Team/Enterprise
-- **🔗 Workflowy Integration**: Connect to your Workflowy account with username/password
-- **🌐 Multiple Deployment Options**: Anthropic connector, local server, or remote Cloudflare Workers
-- **🔒 Secure Authentication**: Token-based authentication with client-provided credentials
+- **🎯 OAuth 2.0 Integration**: Secure OAuth flow for Claude Web Custom Connectors
+- **🔗 Multi-Auth Support**: OAuth, token-based, and API key authentication methods
+- **🌐 Multiple Deployment Options**: OAuth-enabled Workers, local server, or remote endpoints
+- **🔒 Enterprise Security**: OAuth 2.0 with PKCE, encrypted credential storage, token management
 - **⚡ Intelligent Metadata Hydration**: Enriched responses with context like parentName, hierarchy, siblings
 - **🎯 Workflowy-Focused Operations**: Operations designed for real Workflowy usage patterns
 - **🛠️ Complete CRUD Operations**: Create, read, update, delete, and move nodes
@@ -177,6 +171,7 @@ npm test src/test/connector-authentication.test.ts  # Authentication tests only
 
 | Document | Description |
 |----------|-------------|
+| **[OAuth Setup Guide](docs/OAUTH_SETUP.md)** | Complete OAuth 2.0 setup for Claude Web Custom Connectors |
 | **[Installation Guide](docs/INSTALLATION.md)** | Detailed setup instructions for local and remote servers |
 | **[Deployment Guide](docs/DEPLOYMENT.md)** | Deploy your own instance to Cloudflare Workers |
 | **[API Reference](docs/API.md)** | Complete tool documentation and examples |
