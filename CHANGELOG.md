@@ -1,3 +1,10 @@
+## [0.10.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.0...v0.10.1) (2025-09-15)
+
+
+### Bug Fixes
+
+* move OAuth endpoints before authentication check ([b9e2cbc](https://github.com/dseeker/mcp-workflowy-remote/commit/b9e2cbc924f34fe416fce61a27ef74f50b86ef05))
+
 # [0.10.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.9.1...v0.10.0) (2025-09-15)
 
 
