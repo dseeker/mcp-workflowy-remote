@@ -1,3 +1,10 @@
+## [0.10.7](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.6...v0.10.7) (2025-09-16)
+
+
+### Bug Fixes
+
+* simplify deployment by removing problematic KV namespace detection ([7cd0d57](https://github.com/dseeker/mcp-workflowy-remote/commit/7cd0d571c7095c572d809c3ff499b554b0369b6a))
+
 ## [0.10.6](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.5...v0.10.6) (2025-09-16)
 
 
