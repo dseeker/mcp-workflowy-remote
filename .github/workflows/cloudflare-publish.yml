@@ -99,23 +99,38 @@ jobs:
       - name: Deploy to Production
         id: deploy
         run: |
-          # Create OAuth KV namespaces if they don't exist
+          # Set up OAuth KV namespaces (create if needed, use existing if available)
           echo "📦 Setting up OAuth KV namespaces..."
-          if ! npx wrangler kv namespace list | grep -q "OAUTH_KV"; then
-            echo "📦 Creating OAuth KV namespaces..."
+          
+          # Try to get existing KV namespaces first
+          KV_LIST_OUTPUT=$(npx wrangler kv namespace list 2>/dev/null || echo "[]")
+          
+          if echo "$KV_LIST_OUTPUT" | grep -q "OAUTH_KV"; then
+            echo "✅ OAuth KV namespaces already exist"
+            # Extract IDs using a more robust approach
+            PROD_KV_ID=$(echo "$KV_LIST_OUTPUT" | grep -E '"title":\s*"OAUTH_KV"' | grep -v preview | grep -o '"id":\s*"[^"]*"' | cut -d'"' -f4 | head -1)
+            PREVIEW_KV_ID=$(echo "$KV_LIST_OUTPUT" | grep -E '"title":\s*"OAUTH_KV".*preview' | grep -o '"id":\s*"[^"]*"' | cut -d'"' -f4 | head -1)
             
+            # Fallback if extraction fails - create new ones
+            if [ -z "$PROD_KV_ID" ] || [ -z "$PREVIEW_KV_ID" ]; then
+              echo "⚠️  Could not extract existing KV IDs, creating new namespaces..."
+              PROD_OUTPUT=$(npx wrangler kv namespace create "OAUTH_KV" 2>&1)
+              PROD_KV_ID=$(echo "$PROD_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
+              
+              PREVIEW_OUTPUT=$(npx wrangler kv namespace create "OAUTH_KV" --preview 2>&1)
+              PREVIEW_KV_ID=$(echo "$PREVIEW_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
+              echo "✅ Created new KV namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
+            else
+              echo "📋 Using existing namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
+            fi
+          else
+            echo "📦 Creating OAuth KV namespaces..."
             PROD_OUTPUT=$(npx wrangler kv namespace create "OAUTH_KV" 2>&1)
             PROD_KV_ID=$(echo "$PROD_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
             
             PREVIEW_OUTPUT=$(npx wrangler kv namespace create "OAUTH_KV" --preview 2>&1)
             PREVIEW_KV_ID=$(echo "$PREVIEW_OUTPUT" | grep -o 'id = "[^"]*"' | cut -d'"' -f2)
-            
             echo "✅ Created KV namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
-          else
-            echo "✅ OAuth KV namespaces already exist"
-            PROD_KV_ID=$(npx wrangler kv namespace list | grep "OAUTH_KV" | grep -v "preview" | jq -r '.id')
-            PREVIEW_KV_ID=$(npx wrangler kv namespace list | grep "OAUTH_KV" | grep "preview" | jq -r '.id')
-            echo "📋 Using existing namespaces: Prod=$PROD_KV_ID, Preview=$PREVIEW_KV_ID"
           fi
           
           # Update wrangler.toml with actual KV namespace IDs
