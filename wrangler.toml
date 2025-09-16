@@ -5,9 +5,11 @@ compatibility_flags = ["nodejs_compat", "nodejs_als"]
 main = "dist/worker.js"
 
 # KV Namespaces for OAuth storage
-kv_namespaces = [
-  { binding = "OAUTH_KV", id = "your-kv-namespace-id", preview_id = "your-preview-kv-namespace-id" }
-]
+# Note: KV storage will be configured dynamically during deployment
+# OAuth will work with or without KV storage (credentials are passed in OAuth flow)
+# kv_namespaces = [
+#   { binding = "OAUTH_KV", id = "oauth-kv-namespace-id", preview_id = "oauth-kv-preview-id" }
+# ]
 
 # Default configuration (production)
 vars = { ENVIRONMENT = "production", DEBUG = "false" }
