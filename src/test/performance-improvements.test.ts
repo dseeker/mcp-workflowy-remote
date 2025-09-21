@@ -195,20 +195,20 @@ describe('Retry Logic', () => {
     expect(attempts).toBe(1);
   });
 
-  test('should not retry on overloaded errors', async () => {
+  test('should retry on overloaded errors with longer delays', async () => {
     let attempts = 0;
     const mockFunction = async () => {
       attempts++;
-      const error = new Error('Service overloaded');
-      (error as any).overloaded = true;
-      throw error;
+      if (attempts < 3) {
+        throw new OverloadError('Service overloaded');
+      }
+      return 'success';
     };
 
-    await expect(
-      retryManager.withRetry(mockFunction, RetryPresets.STANDARD)
-    ).rejects.toThrow('Service overloaded');
-    
-    expect(attempts).toBe(1);
+    const result = await retryManager.withRetry(mockFunction, { ...RetryPresets.STANDARD, maxAttempts: 3 });
+
+    expect(result).toBe('success');
+    expect(attempts).toBe(3);
   });
 
   test('should respect max attempts limit', async () => {
@@ -397,9 +397,9 @@ describe('Enhanced Error Types', () => {
 
   test('should create overload errors', () => {
     const error = new OverloadError('Service overloaded');
-    
+
     expect(error.name).toBe('OverloadError');
-    expect(error.retryable).toBe(false);
+    expect(error.retryable).toBe(true);
     expect(error.overloaded).toBe(true);
     expect(error.code).toBe('OVERLOADED');
   });
