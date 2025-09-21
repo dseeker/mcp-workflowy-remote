@@ -62,9 +62,9 @@ class WorkflowyClient {
 
     /**
      * Create authenticated Workflowy client instance with retry logic
-     * @public Helper method to create and authenticate a Workflowy client
+     * @private Helper method to create and authenticate a Workflowy client
      */
-    async createAuthenticatedClient(username?: string, password?: string): Promise<{wf: WorkFlowy, client: Client}> {
+    private async createAuthenticatedClient(username?: string, password?: string): Promise<{wf: WorkFlowy, client: Client}> {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             
@@ -700,8 +700,7 @@ class WorkflowyClient {
                     nodeId,
                     maxDepth,
                     includeFields: includeFields?.join(','),
-                    previewLength,
-                    metadataHydrated: needsMetadata
+                    previewLength
                 });
 
                 return result;

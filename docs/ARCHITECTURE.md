@@ -177,9 +177,9 @@ graph TB
     end
 
     subgraph "Deployment Targets"
-        Prod[Production Worker<br/>mcp-workflowy-remote<br/>.daniel-bca.workers.dev]
-        PrevAlias[Preview Alias<br/>preview-mcp-workflowy<br/>-remote.daniel-bca.workers.dev]
-        PRAlias[PR-Specific URL<br/>pr123-mcp-workflowy<br/>-remote.daniel-bca.workers.dev]
+        Prod[Production Worker<br/>{worker-name}<br/>.{cloudflare-account}.workers.dev]
+        PrevAlias[Preview Alias<br/>preview-{worker-name}<br/>.{cloudflare-account}.workers.dev]
+        PRAlias[PR-Specific URL<br/>pr123-{worker-name}<br/>.{cloudflare-account}.workers.dev]
     end
 
     subgraph "Verification"

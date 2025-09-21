@@ -1,3 +1,70 @@
+## [0.10.7](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.6...v0.10.7) (2025-09-16)
+
+
+### Bug Fixes
+
+* simplify deployment by removing problematic KV namespace detection ([7cd0d57](https://github.com/dseeker/mcp-workflowy-remote/commit/7cd0d571c7095c572d809c3ff499b554b0369b6a))
+
+## [0.10.6](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.5...v0.10.6) (2025-09-16)
+
+
+### Bug Fixes
+
+* improve KV namespace detection and parsing in deployment ([833d293](https://github.com/dseeker/mcp-workflowy-remote/commit/833d2931ffd189e11b3fee79a85c7aa57da9128c))
+
+## [0.10.5](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.4...v0.10.5) (2025-09-16)
+
+## [0.10.4](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.3...v0.10.4) (2025-09-15)
+
+
+### Bug Fixes
+
+* update OAuth deployment wrangler commands to use new CLI syntax ([7991605](https://github.com/dseeker/mcp-workflowy-remote/commit/79916056e849e373df57e5508903c80bb8340e12))
+
+## [0.10.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.2...v0.10.3) (2025-09-15)
+
+
+### Bug Fixes
+
+* update wrangler KV namespace commands to use new CLI syntax ([3db52bc](https://github.com/dseeker/mcp-workflowy-remote/commit/3db52bc9d527d0a58a731da6a02163878d3a8193))
+
+## [0.10.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.1...v0.10.2) (2025-09-15)
+
+
+### Bug Fixes
+
+* add KV namespace creation to main deployment step ([a5453c4](https://github.com/dseeker/mcp-workflowy-remote/commit/a5453c43d4e54630a36ce50318eef5942e201f45))
+
+## [0.10.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.10.0...v0.10.1) (2025-09-15)
+
+
+### Bug Fixes
+
+* move OAuth endpoints before authentication check ([b9e2cbc](https://github.com/dseeker/mcp-workflowy-remote/commit/b9e2cbc924f34fe416fce61a27ef74f50b86ef05))
+
+# [0.10.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.9.1...v0.10.0) (2025-09-15)
+
+
+### Bug Fixes
+
+* correct OAuth provider library dependency ([d31c04f](https://github.com/dseeker/mcp-workflowy-remote/commit/d31c04f5d5307e5420aebfb994c7a6db965abd27))
+
+
+### Features
+
+* integrate OAuth 2.0 authentication directly into existing worker ([ccaf677](https://github.com/dseeker/mcp-workflowy-remote/commit/ccaf677c37ba965752a5c960c1f3f2971879b3f1))
+
+## [0.9.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.9.0...v0.9.1) (2025-09-12)
+
+# [0.9.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.3...v0.9.0) (2025-09-11)
+
+
+### Features
+
+* add Anthropic custom connector support with token-based authentication ([ca8203e](https://github.com/dseeker/mcp-workflowy-remote/commit/ca8203e48544c05ed23ef915c8f3a775c6c54985))
+
+## [0.8.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.2...v0.8.3) (2025-09-01)
+
 ## [0.8.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.1...v0.8.2) (2025-09-01)
 
 ## [0.8.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.0...v0.8.1) (2025-09-01)
