@@ -671,6 +671,68 @@ class WorkflowyClient {
     }
 
     /**
+     * Create multiple nodes under the same parent in a single atomic operation
+     */
+    async batchCreateNodes(parentId: string, nodes: Array<{name: string, description?: string}>, username?: string, password?: string) {
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { wf } = await this.createAuthenticatedClient(username, password);
+
+            try {
+                const doc = await wf.getDocument();
+                const parent = this.findNodeById(doc.root.items, parentId);
+
+                if (!parent) {
+                    throw new NotFoundError(`Parent node with ID ${parentId} not found.`, parentId);
+                }
+
+                // Create all nodes in memory (batch operation)
+                const createdNodes = [];
+                for (const nodeData of nodes) {
+                    const newNode = await parent.createItem();
+                    newNode.setName(nodeData.name);
+                    if (nodeData.description) {
+                        newNode.setNote(nodeData.description);
+                    }
+                    createdNodes.push({
+                        id: newNode.id,
+                        name: nodeData.name,
+                        description: nodeData.description
+                    });
+                }
+
+                // Single save operation for all nodes (atomic)
+                if (doc.isDirty()) {
+                    await doc.save();
+                }
+
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('batchCreateNodes', duration, true, {
+                    parentId,
+                    nodeCount: nodes.length,
+                    totalNames: nodes.map(n => n.name.substring(0, 30)).join(', ')
+                });
+
+                return {
+                    success: true,
+                    nodesCreated: createdNodes.length,
+                    nodes: createdNodes,
+                    parentId,
+                    timing: `${duration}ms`
+                };
+            } catch (error: any) {
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('batchCreateNodes', duration, false, {
+                    parentId,
+                    nodeCount: nodes.length,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'batchCreateNodes');
+            }
+        }, RetryPresets.BATCH);
+    }
+
+    /**
      * Get a single node by its ID with retry logic
      */
     async getNodeById(nodeId: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
