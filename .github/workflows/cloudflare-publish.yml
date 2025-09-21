@@ -360,7 +360,7 @@ jobs:
                 CPU_TIME=$(echo "$line" | jq -r '.cpuTime // 0' 2>/dev/null)
                 STATUS=$(echo "$line" | jq -r '.event.response.status // "N/A"' 2>/dev/null)
                 METHOD=$(echo "$line" | jq -r '.event.request.method // "N/A"' 2>/dev/null)
-                URL=$(echo "$line" | jq -r '.event.request.url // "N/A"' 2>/dev/null | sed 's|https://mcp-workflowy-remote.daniel-bca.workers.dev||')
+                URL=$(echo "$line" | jq -r '.event.request.url // "N/A"' 2>/dev/null | sed 's|https://[^/]*\.workers\.dev||')
                 
                 # Extract our structured logs from the logs array
                 LOG_MESSAGES=$(echo "$line" | jq -r '.logs[]?.message[]? // empty' 2>/dev/null)
