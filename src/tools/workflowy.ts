@@ -139,53 +139,23 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ parentId, nodes, username, password }:
         { parentId: string, nodes: Array<{name: string, description?: string}>, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      return retryManager.withRetry(async () => {
-        const startTime = Date.now();
-        const { wf } = await workflowyClient.createAuthenticatedClient(username, password);
-
-        const doc = await wf.getDocument();
-        const parent = workflowyClient.findNodeById(doc.root.items, parentId);
-
-        if (!parent) {
-          throw new Error(`Parent node with ID ${parentId} not found.`);
-        }
-
-        // Create all nodes in memory (batch operation)
-        const createdNodes = [];
-        for (const nodeData of nodes) {
-          const newNode = await parent.createItem();
-          newNode.setName(nodeData.name);
-          if (nodeData.description) {
-            newNode.setNote(nodeData.description);
-          }
-          createdNodes.push({
-            id: newNode.id,
-            name: nodeData.name,
-            description: nodeData.description
-          });
-        }
-
-        // Single save operation for all nodes (atomic)
-        if (doc.isDirty()) {
-          await doc.save();
-        }
-
-        const duration = Date.now() - startTime;
+      try {
+        const result = await workflowyClient.batchCreateNodes(parentId, nodes, username, password);
 
         return {
           content: [{
             type: "text",
-            text: `Successfully created ${createdNodes.length} nodes under parent ${parentId} in ${duration}ms:\n${createdNodes.map(n => `- ${n.name} (${n.id})`).join('\n')}`
+            text: `Successfully created ${result.nodesCreated} nodes under parent ${parentId} in ${result.timing}:\n${result.nodes.map(n => `- ${n.name} (${n.id})`).join('\n')}`
           }]
         };
-      }, RetryPresets.BATCH).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error creating batch nodes after retries: ${error.message}`
+            text: `Error creating batch nodes: ${error.message}`
           }]
         };
-      });
+      };
     }
   },
 
