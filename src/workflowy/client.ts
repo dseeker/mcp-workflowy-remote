@@ -51,8 +51,8 @@ export class NotFoundError extends WorkflowyError {
 }
 
 export class OverloadError extends WorkflowyError {
-  constructor(message: string) {
-    super(message, { retryable: false, overloaded: true, code: 'OVERLOADED' });
+  constructor(message: string, retryable: boolean = true) {
+    super(message, { retryable, overloaded: true, code: 'OVERLOADED' });
     this.name = 'OverloadError';
   }
 }
@@ -62,9 +62,9 @@ class WorkflowyClient {
 
     /**
      * Create authenticated Workflowy client instance with retry logic
-     * @private Helper method to create and authenticate a Workflowy client
+     * @public Helper method to create and authenticate a Workflowy client
      */
-    private async createAuthenticatedClient(username?: string, password?: string): Promise<{wf: WorkFlowy, client: Client}> {
+    async createAuthenticatedClient(username?: string, password?: string): Promise<{wf: WorkFlowy, client: Client}> {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             
@@ -462,8 +462,8 @@ class WorkflowyClient {
             
             try {
                 const doc = await wf.getDocument();
-                const parent = doc.root.items.find(item => item.id === parentId);
-                
+                const parent = this.findNodeById(doc.root.items, parentId);
+
                 if (!parent) {
                     throw new NotFoundError(`Parent node with ID ${parentId} not found.`, parentId);
                 }
@@ -579,76 +579,144 @@ class WorkflowyClient {
     }
 
     /**
-     * Complete/uncomplete a node
+     * Complete/uncomplete a node with retry logic
      */
     async toggleComplete(nodeId: string, completed: boolean, username?: string, password?: string) {
-        const { wf } = await this.createAuthenticatedClient(username, password);
-        const doc = await wf.getDocument();
-        const node = this.findNodeById(doc.root.items, nodeId);
-        if (!node) {
-            throw new Error(`Node with ID ${nodeId} not found.`);
-        }
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { wf } = await this.createAuthenticatedClient(username, password);
 
-        if (completed) {
-            await node.setCompleted();
-        } else {
-            await node.setCompleted(false);
-        }
+            try {
+                const doc = await wf.getDocument();
+                const node = this.findNodeById(doc.root.items, nodeId);
 
-        if (doc.isDirty()) {
-            // Saves the changes if there are any
-            await doc.save();
-        }
+                if (!node) {
+                    throw new NotFoundError(`Node with ID ${nodeId} not found.`, nodeId);
+                }
+
+                if (completed) {
+                    await node.setCompleted();
+                } else {
+                    await node.setCompleted(false);
+                }
+
+                if (doc.isDirty()) {
+                    await doc.save();
+                }
+
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('toggleComplete', duration, true, {
+                    nodeId,
+                    completed
+                });
+            } catch (error: any) {
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('toggleComplete', duration, false, {
+                    nodeId,
+                    completed,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'toggleComplete');
+            }
+        }, RetryPresets.WRITE);
     }
 
     /**
-     * Move a node to a different parent with optional priority
+     * Move a node to a different parent with optional priority with retry logic
      */
     async moveNode(nodeId: string, newParentId: string, priority?: number, username?: string, password?: string) {
-        const { wf } = await this.createAuthenticatedClient(username, password);
-        const doc = await wf.getDocument();
-        
-        // Find the node to move
-        const node = this.findNodeById(doc.root.items, nodeId);
-        if (!node) {
-            throw new Error(`Node with ID ${nodeId} not found.`);
-        }
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { wf } = await this.createAuthenticatedClient(username, password);
 
-        // Find the new parent
-        const newParent = this.findNodeById(doc.root.items, newParentId);
-        if (!newParent) {
-            throw new Error(`Target parent node with ID ${newParentId} not found.`);
-        }
+            try {
+                const doc = await wf.getDocument();
 
-        // Move the node using the Workflowy API
-        await node.move(newParent, priority);
+                // Find the node to move
+                const node = this.findNodeById(doc.root.items, nodeId);
+                if (!node) {
+                    throw new NotFoundError(`Node with ID ${nodeId} not found.`, nodeId);
+                }
 
-        if (doc.isDirty()) {
-            // Saves the changes if there are any
-            await doc.save();
-        }
+                // Find the new parent
+                const newParent = this.findNodeById(doc.root.items, newParentId);
+                if (!newParent) {
+                    throw new NotFoundError(`Target parent node with ID ${newParentId} not found.`, newParentId);
+                }
+
+                // Move the node using the Workflowy API
+                await node.move(newParent, priority);
+
+                if (doc.isDirty()) {
+                    await doc.save();
+                }
+
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('moveNode', duration, true, {
+                    nodeId,
+                    newParentId,
+                    priority
+                });
+            } catch (error: any) {
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('moveNode', duration, false, {
+                    nodeId,
+                    newParentId,
+                    priority,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'moveNode');
+            }
+        }, RetryPresets.WRITE);
     }
 
     /**
-     * Get a single node by its ID
+     * Get a single node by its ID with retry logic
      */
     async getNodeById(nodeId: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
-        const { wf } = await this.createAuthenticatedClient(username, password);
-        const doc = await wf.getDocument();
-        
-        // Find the node
-        const node = this.findNodeById(doc.root.items, nodeId);
-        if (!node) {
-            throw new Error(`Node with ID ${nodeId} not found.`);
-        }
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { wf } = await this.createAuthenticatedClient(username, password);
 
-        // Check if metadata fields are requested
-        const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
+            try {
+                const doc = await wf.getDocument();
 
-        // Convert to JSON and apply filtering with metadata hydration
-        const nodeJson = node.toJson();
-        const workflowyList = needsMetadata ? node : undefined;
-        return await this.createFilteredNode(nodeJson, maxDepth, includeFields, 0, previewLength, workflowyList);
+                // Find the node
+                const node = this.findNodeById(doc.root.items, nodeId);
+                if (!node) {
+                    throw new NotFoundError(`Node with ID ${nodeId} not found.`, nodeId);
+                }
+
+                // Check if metadata fields are requested
+                const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
+
+                // Convert to JSON and apply filtering with metadata hydration
+                const nodeJson = node.toJson();
+                const workflowyList = needsMetadata ? node : undefined;
+                const result = await this.createFilteredNode(nodeJson, maxDepth, includeFields, 0, previewLength, workflowyList);
+
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('getNodeById', duration, true, {
+                    nodeId,
+                    maxDepth,
+                    includeFields: includeFields?.join(','),
+                    previewLength,
+                    metadataHydrated: needsMetadata
+                });
+
+                return result;
+            } catch (error: any) {
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('getNodeById', duration, false, {
+                    nodeId,
+                    maxDepth,
+                    includeFields: includeFields?.join(','),
+                    previewLength,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'getNodeById');
+            }
+        }, RetryPresets.STANDARD);
     }
 
     /**
@@ -711,28 +779,28 @@ class WorkflowyClient {
     }
 
     /**
-     * Check if Workflowy service is available (graceful degradation)
+     * Check if Workflowy service is available (graceful degradation) with retry logic
      */
     async checkServiceHealth(username?: string, password?: string): Promise<{
         available: boolean;
         responseTime?: number;
         error?: string;
     }> {
-        try {
+        return retryManager.withRetry(async () => {
             const startTime = Date.now();
             await this.createAuthenticatedClient(username, password);
             const responseTime = Date.now() - startTime;
-            
+
             return {
                 available: true,
                 responseTime
             };
-        } catch (error: any) {
+        }, RetryPresets.QUICK).catch((error: any) => {
             return {
                 available: false,
                 error: error.message
             };
-        }
+        });
     }
 }
 
