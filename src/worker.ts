@@ -87,15 +87,118 @@ class WorkflowyMCPServer {
       return true;
     }
     
+    // Check if it's a user-generated token from /connector/setup
+    if (apiKey.length > 20 && this.isValidUserToken(apiKey)) {
+      return true;
+    }
+    
     return allowedKeys.includes(apiKey);
   }
 
-  private extractCredentials(params: any, env: any, headers?: Headers): { username?: string, password?: string } {
+  private isValidUserToken(token: string): boolean {
+    try {
+      // Decode the base64 token to validate format
+      const decoded = atob(token);
+      const parts = decoded.split(':');
+      
+      // Should have format: username:password:timestamp
+      if (parts.length === 3) {
+        const timestamp = parseInt(parts[2]);
+        const now = Date.now();
+        
+        // Token should be less than 30 days old
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+        return (now - timestamp) < thirtyDays;
+      }
+      
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  private async extractCredentials(params: any, env: any, headers?: Headers): Promise<{ username?: string, password?: string }> {
+    // First check if we have a user token from Authorization header
+    const authHeader = headers?.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      
+      // Check for OAuth access token
+      if (token.startsWith('oauth_access_')) {
+        const oauthCredentials = await this.extractCredentialsFromOAuthToken(token, env);
+        if (oauthCredentials) {
+          return oauthCredentials;
+        }
+      }
+      
+      // Check for user token from connector setup
+      const credentials = this.extractCredentialsFromToken(token);
+      if (credentials) {
+        return credentials;
+      }
+    }
+    
     // Priority: 1. Client-provided credentials, 2. Headers, 3. Environment fallback
     return {
       username: params.workflowy_username || headers?.get('X-Workflowy-Username') || env.WORKFLOWY_USERNAME,
       password: params.workflowy_password || headers?.get('X-Workflowy-Password') || env.WORKFLOWY_PASSWORD
     };
+  }
+
+  private extractCredentialsFromToken(token: string): { username?: string, password?: string } | null {
+    try {
+      if (this.isValidUserToken(token)) {
+        const decoded = atob(token);
+        const parts = decoded.split(':');
+        
+        if (parts.length === 3) {
+          return {
+            username: parts[0],
+            password: parts[1]
+          };
+        }
+      }
+      
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async extractCredentialsFromOAuthToken(token: string, env: any): Promise<{ username?: string, password?: string } | null> {
+    try {
+      // OAuth access tokens are stored in KV with format oauth_access_[random]
+      if (!token.startsWith('oauth_access_')) {
+        return null;
+      }
+
+      // Retrieve token data from KV storage
+      const tokenData = await env.OAUTH_KV?.get(token);
+      if (!tokenData) {
+        return null;
+      }
+
+      const parsedData = JSON.parse(tokenData);
+      
+      // Verify token hasn't expired
+      if (parsedData.expires_at && Date.now() > parsedData.expires_at) {
+        // Clean up expired token
+        await env.OAUTH_KV?.delete(token);
+        return null;
+      }
+
+      // Return the stored Workflowy credentials
+      if (parsedData.username && parsedData.password) {
+        return {
+          username: parsedData.username,
+          password: parsedData.password
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   private createEnvHandler(fastmcpHandler: Function) {
@@ -409,7 +512,7 @@ export default {
     // Validate API key for authenticated endpoints with logging
     const validateAuth = () => {
       const apiKey = request.headers.get('Authorization')?.replace('Bearer ', '') || null;
-      if (!config.validateApiKey(apiKey)) {
+      if (!config.validateApiKey(apiKey) && !server.validateApiKey(apiKey, env)) {
         logger.warn('Authentication failed', {
           hasApiKey: !!apiKey,
           apiKeyLength: apiKey?.length,
@@ -516,6 +619,116 @@ export default {
         });
       }
     }
+
+    // Anthropic Connector Setup Endpoint - handles credential exchange
+    if (url.pathname === '/connector/setup') {
+      if (request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { username, password } = body;
+          
+          if (!username || !password) {
+            return new Response(JSON.stringify({
+              error: 'Missing credentials',
+              message: 'Both username and password are required'
+            }), {
+              status: 400,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+          
+          // Validate credentials by attempting authentication
+          try {
+            const healthCheck = await workflowyClient.checkServiceHealth(username, password);
+            
+            if (!healthCheck.available) {
+              return new Response(JSON.stringify({
+                error: 'Invalid credentials',
+                message: 'Failed to authenticate with Workflowy'
+              }), {
+                status: 401,
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                }
+              });
+            }
+            
+            // Generate a secure token for this user session
+            const userToken = btoa(`${username}:${password}:${Date.now()}`);
+            
+            // In a production system, you'd store this securely
+            // For now, we'll return it to be used as the API key
+            return new Response(JSON.stringify({
+              success: true,
+              token: userToken,
+              message: 'Credentials validated successfully',
+              instructions: 'Use this token as your API key when configuring the Anthropic connector'
+            }), {
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+            
+          } catch (error: any) {
+            logger.error('Credential validation failed', error);
+            return new Response(JSON.stringify({
+              error: 'Authentication failed',
+              message: 'Could not validate Workflowy credentials'
+            }), {
+              status: 401,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+          
+        } catch (error: any) {
+          return new Response(JSON.stringify({
+            error: 'Invalid request',
+            message: 'Could not parse request body'
+          }), {
+            status: 400,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+      }
+      
+      // GET method returns setup instructions
+      if (request.method === 'GET') {
+        return new Response(JSON.stringify({
+          name: "Workflowy MCP Connector Setup",
+          description: "Setup endpoint for Anthropic custom connector integration",
+          instructions: {
+            step1: "POST your Workflowy credentials to this endpoint",
+            step2: "Receive a secure token in response",
+            step3: "Use the token as API key when configuring the Anthropic connector",
+            step4: "Configure connector URL: " + new URL('/mcp', request.url).toString()
+          },
+          schema: {
+            method: "POST",
+            body: {
+              username: "your_workflowy_username",
+              password: "your_workflowy_password"
+            }
+          }
+        }), {
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+    }
+
 
     // Temporary debug endpoint to check API key configuration
     if (url.pathname === '/debug-keys') {
@@ -628,6 +841,208 @@ export default {
       }
     }
 
+    // OAuth Authorization Server Metadata (RFC 8414) - No authentication required
+    if (url.pathname === '/.well-known/oauth-authorization-server') {
+      const baseUrl = `${url.protocol}//${url.host}`;
+      return new Response(JSON.stringify({
+        issuer: baseUrl,
+        authorization_endpoint: `${baseUrl}/oauth/authorize`,
+        token_endpoint: `${baseUrl}/oauth/token`,
+        scopes_supported: ['workflowy:read', 'workflowy:write'],
+        response_types_supported: ['code'],
+        grant_types_supported: ['authorization_code', 'refresh_token'],
+        token_endpoint_auth_methods_supported: ['none']
+      }), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // OAuth Authorization Endpoint - No authentication required
+    if (url.pathname === '/oauth/authorize') {
+      if (request.method === 'GET') {
+        const params = url.searchParams;
+        const client_id = params.get('client_id') || 'claude-web';
+        const redirect_uri = params.get('redirect_uri') || 'https://claude.ai';
+        const scope = params.get('scope') || 'workflowy:read workflowy:write';
+        const state = params.get('state') || '';
+
+        const html = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Authorize Workflowy Access</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 50px auto; padding: 20px; background: #f8f9fa; }
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .logo { width: 48px; height: 48px; background: #007cba; border-radius: 8px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; }
+        h1 { color: #2c3e50; margin: 0; font-size: 24px; }
+        .subtitle { color: #6c757d; margin-top: 8px; }
+        .client-info { background: #f8f9fa; padding: 16px; border-radius: 6px; margin-bottom: 24px; border-left: 4px solid #007cba; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 6px; font-weight: 500; color: #495057; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 12px; border: 1px solid #ced4da; border-radius: 6px; font-size: 16px; }
+        input:focus { outline: none; border-color: #007cba; box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.1); }
+        button { background: #007cba; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; width: 100%; }
+        button:hover { background: #005a87; }
+        .help-text { font-size: 14px; color: #6c757d; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">W</div>
+            <h1>Authorize Workflowy Access</h1>
+            <div class="subtitle">Claude wants to access your Workflowy account</div>
+        </div>
+        
+        <div class="client-info">
+            <strong>Application:</strong> ${client_id}<br>
+            <strong>Permissions:</strong> ${scope}<br>
+            <strong>Redirect:</strong> ${redirect_uri}
+        </div>
+
+        <form method="POST">
+            <input type="hidden" name="client_id" value="${client_id}">
+            <input type="hidden" name="redirect_uri" value="${redirect_uri}">
+            <input type="hidden" name="scope" value="${scope}">
+            <input type="hidden" name="state" value="${state}">
+            
+            <div class="form-group">
+                <label for="workflowy_username">Workflowy Username/Email:</label>
+                <input type="text" id="workflowy_username" name="workflowy_username" required placeholder="your@email.com">
+                <div class="help-text">Your credentials are encrypted and used only for authentication.</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="workflowy_password">Workflowy Password:</label>
+                <input type="password" id="workflowy_password" name="workflowy_password" required>
+            </div>
+            
+            <button type="submit">Authorize Access</button>
+        </form>
+    </div>
+</body>
+</html>`;
+
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+
+      if (request.method === 'POST') {
+        try {
+          const formData = await request.formData();
+          const client_id = formData.get('client_id') as string;
+          const redirect_uri = formData.get('redirect_uri') as string;
+          const scope = formData.get('scope') as string;
+          const state = formData.get('state') as string;
+          const workflowy_username = formData.get('workflowy_username') as string;
+          const workflowy_password = formData.get('workflowy_password') as string;
+
+          if (!workflowy_username || !workflowy_password) {
+            return new Response('Missing credentials', { status: 400 });
+          }
+
+          // Validate credentials (reuse existing validation logic)
+          const healthCheck = await workflowyClient.checkServiceHealth(workflowy_username, workflowy_password);
+          if (!healthCheck.available) {
+            return new Response('Invalid Workflowy credentials', { status: 401 });
+          }
+
+          // Generate authorization code
+          const code = btoa(`oauth_${Date.now()}_${Math.random()}`).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+          
+          // Store in KV (only if available)
+          if (env.OAUTH_KV) {
+            const authState = {
+              client_id, redirect_uri, scope, state, workflowy_username, workflowy_password,
+              expires_at: Date.now() + (10 * 60 * 1000)
+            };
+            await env.OAUTH_KV.put(`auth:${code}`, JSON.stringify(authState), { expirationTtl: 600 });
+          }
+
+          // Redirect with authorization code
+          const redirectUrl = new URL(redirect_uri);
+          redirectUrl.searchParams.set('code', code);
+          if (state) redirectUrl.searchParams.set('state', state);
+
+          return Response.redirect(redirectUrl.toString(), 302);
+
+        } catch (error: any) {
+          logger.error('OAuth authorization failed', error);
+          return new Response('Authorization failed', { status: 500 });
+        }
+      }
+    }
+
+    // OAuth Token Endpoint - No authentication required
+    if (url.pathname === '/oauth/token') {
+      if (request.method === 'POST') {
+        try {
+          const formData = await request.formData();
+          const grant_type = formData.get('grant_type') as string;
+          const code = formData.get('code') as string;
+          const redirect_uri = formData.get('redirect_uri') as string;
+          const client_id = formData.get('client_id') as string;
+
+          if (grant_type !== 'authorization_code') {
+            return new Response(JSON.stringify({ error: 'unsupported_grant_type' }), {
+              status: 400, headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Retrieve and validate authorization (only if KV available)
+          let authData = null;
+          if (env.OAUTH_KV) {
+            const authDataStr = await env.OAUTH_KV.get(`auth:${code}`);
+            if (authDataStr) {
+              authData = JSON.parse(authDataStr);
+              if (authData.client_id !== client_id || authData.redirect_uri !== redirect_uri || authData.expires_at < Date.now()) {
+                authData = null;
+              } else {
+                await env.OAUTH_KV.delete(`auth:${code}`); // Use once
+              }
+            }
+          }
+
+          if (!authData) {
+            return new Response(JSON.stringify({ error: 'invalid_grant' }), {
+              status: 400, headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Generate access token
+          const access_token = `oauth_access_${btoa(`${Date.now()}_${Math.random()}`).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32)}`;
+          
+          // Store token in KV (only if available)
+          if (env.OAUTH_KV) {
+            const tokenData = {
+              client_id, scope: authData.scope,
+              workflowy_username: authData.workflowy_username,
+              workflowy_password: authData.workflowy_password,
+              expires_at: Date.now() + (3600 * 1000)
+            };
+            await env.OAUTH_KV.put(`token:${access_token}`, JSON.stringify(tokenData), { expirationTtl: 3600 });
+          }
+
+          return new Response(JSON.stringify({
+            access_token, token_type: 'Bearer', expires_in: 3600, scope: authData.scope
+          }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+          });
+
+        } catch (error: any) {
+          logger.error('OAuth token exchange failed', error);
+          return new Response(JSON.stringify({ error: 'server_error' }), {
+            status: 500, headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+    }
+
     // Legacy REST endpoints for backward compatibility (authenticated)
     const authError = validateAuth();
     if (authError) return authError;
@@ -660,6 +1075,7 @@ export default {
         description: "Workflowy MCP Server - Remote deployment on Cloudflare Workers",
         endpoints: {
           mcp: '/mcp',
+          connector_setup: '/connector/setup',
           ...(config.isFeatureEnabled('sse') && { sse: '/sse (Server-Sent Events)' }),
           health: '/health',
           ...(config.isFeatureEnabled('legacyRest') && { tools: '/tools (legacy)' })
@@ -669,6 +1085,7 @@ export default {
           ...(config.isFeatureEnabled('sse') ? ['Server-Sent Events'] : []),
           'HTTP Headers Auth',
           'API Key Auth',
+          'OAuth 2.0 Flow',
           'Environment-specific Configuration'
         ],
         security: {

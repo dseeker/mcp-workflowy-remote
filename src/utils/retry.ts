@@ -69,7 +69,7 @@ export class RetryManager {
 
         // Calculate delay with exponential backoff and jitter
         const delay = this.calculateDelay(attempt, finalConfig, error);
-        
+
         console.log(`[RETRY] Attempt ${attempt}/${finalConfig.maxAttempts} after ${delay}ms delay:`, {
           error: error.message,
           status: error.status,

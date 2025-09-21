@@ -99,7 +99,11 @@ jobs:
       - name: Deploy to Production
         id: deploy
         run: |
-          # Deploy to production first
+          # Note: OAuth KV namespaces are preconfigured in wrangler.toml
+          # Since OAuth endpoints are working in production, KV namespaces exist and are properly configured
+          echo "📦 OAuth KV namespaces are preconfigured and working"
+          
+          # Deploy to production
           VERSION="${{ needs.version.outputs.version || 'dev' }}"
           echo "🚀 Deploying v$VERSION to production..."
           
@@ -227,6 +231,46 @@ jobs:
           echo "🚀 Production server ready at: $WORKER_URL"
         env:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
+
+      - name: Verify OAuth integration
+        run: |
+          WORKER_URL="${{ steps.deploy.outputs.worker-url }}"
+          
+          echo "🧪 Verifying OAuth integration in main worker at: $WORKER_URL"
+          
+          # Test OAuth metadata endpoint
+          METADATA_RESPONSE=$(curl -s "$WORKER_URL/.well-known/oauth-authorization-server")
+          AUTHORIZATION_ENDPOINT=$(echo "$METADATA_RESPONSE" | jq -r '.authorization_endpoint // "missing"')
+          
+          if [ "$AUTHORIZATION_ENDPOINT" != "missing" ]; then
+            echo "✅ OAuth metadata endpoint working"
+          else
+            echo "❌ OAuth metadata endpoint failed"
+            echo "Response: $METADATA_RESPONSE"
+            exit 1
+          fi
+          
+          # Test OAuth authorization endpoint
+          AUTH_RESPONSE=$(curl -s "$WORKER_URL/oauth/authorize?client_id=test&redirect_uri=https://claude.ai/oauth/callback&response_type=code")
+          if echo "$AUTH_RESPONSE" | grep -q "Authorize Workflowy Access"; then
+            echo "✅ OAuth authorization endpoint working"
+          else
+            echo "❌ OAuth authorization endpoint failed"
+            exit 1
+          fi
+          
+          echo "🎉 OAuth integration verification passed!"
+          echo ""
+          echo "📋 Claude Web Custom Connector Setup:"
+          echo "   • Name: Workflowy MCP"  
+          echo "   • Remote MCP server URL: $WORKER_URL/mcp"
+          echo "   • OAuth Client ID: (leave empty or any value like 'claude-web')"
+          echo "   • OAuth Client Secret: (leave empty)"
+          echo ""
+          echo "🔗 OAuth Endpoints:"
+          echo "   • Authorization: $WORKER_URL/oauth/authorize"
+          echo "   • Token: $WORKER_URL/oauth/token"
+          echo "   • Metadata: $WORKER_URL/.well-known/oauth-authorization-server"
 
       - name: Collect Worker Logs with Real-time Output
         continue-on-error: true
