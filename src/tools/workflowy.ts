@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { workflowyClient } from "../workflowy/client.js";
-import { retryManager, RetryPresets } from "../utils/retry.js";
 import log from "../utils/logger.js";
 
 export const workflowyTools: Record<string, any> = {
@@ -13,7 +12,7 @@ export const workflowyTools: Record<string, any> = {
       preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
     },
     handler: async ({ parentId, maxDepth, includeFields, preview, username, password }: { parentId?: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
-      return retryManager.withRetry(async () => {
+      try {
         const depth = maxDepth ?? 0;
         const fields = includeFields ?? ['id', 'name']; // Default to basic meta and tree structure only
 
@@ -26,14 +25,14 @@ export const workflowyTools: Record<string, any> = {
             text: JSON.stringify(items, null, 2)
           }]
         };
-      }, RetryPresets.STANDARD).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error listing nodes after retries: ${error.message}`
+            text: `Error listing nodes: ${error.message}`
           }]
         };
-      });
+      }
     },
     annotations: {
         title: "List nodes in Workflowy",
@@ -61,7 +60,7 @@ export const workflowyTools: Record<string, any> = {
         openWorldHint: false
     },
     handler: async ({ query, limit, maxDepth, includeFields, preview, username, password }: { query: string, limit?: number, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }, client: typeof workflowyClient) => {
-      return retryManager.withRetry(async () => {
+      try {
         const startTime = Date.now();
         const items = await workflowyClient.search(query, username, password, limit, maxDepth, includeFields, preview);
 
@@ -73,14 +72,14 @@ export const workflowyTools: Record<string, any> = {
             text: JSON.stringify(items, null, 2)
           }]
         };
-      }, RetryPresets.STANDARD).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error searching nodes after retries: ${error.message}`
+            text: `Error searching nodes: ${error.message}`
           }]
         };
-      });
+      }
     }
   },
 
@@ -101,7 +100,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ parentId, name, description, username, password }:
         { parentId: string, name: string, description?: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      return retryManager.withRetry(async () => {
+      try {
         await workflowyClient.createNode(parentId, name, description, username, password);
         return {
           content: [{
@@ -109,14 +108,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully created node "${name}" under parent ${parentId}`
           }]
         };
-      }, RetryPresets.WRITE).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error creating node after retries: ${error.message}`
+            text: `Error creating node: ${error.message}`
           }]
         };
-      });
+      }
     }
   },
 
@@ -176,7 +175,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, name, description, username, password }:
         { nodeId: string, name?: string, description?: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      return retryManager.withRetry(async () => {
+      try {
         await workflowyClient.updateNode(nodeId, name, description, username, password);
         return {
           content: [{
@@ -184,14 +183,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully updated node ${nodeId}`
           }]
         };
-      }, RetryPresets.WRITE).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error updating node after retries: ${error.message}`
+            text: `Error updating node: ${error.message}`
           }]
         };
-      });
+      }
     }
   },
 
@@ -210,7 +209,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, username, password }:
         { nodeId: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      return retryManager.withRetry(async () => {
+      try {
         await workflowyClient.deleteNode(nodeId, username, password);
         return {
           content: [{
@@ -218,14 +217,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully deleted node ${nodeId}`
           }]
         };
-      }, RetryPresets.WRITE).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error deleting node after retries: ${error.message}`
+            text: `Error deleting node: ${error.message}`
           }]
         };
-      });
+      }
     }
   },
 
@@ -245,7 +244,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, completed, username, password }:
         { nodeId: string, completed: boolean, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      return retryManager.withRetry(async () => {
+      try {
         await workflowyClient.toggleComplete(nodeId, completed, username, password);
         return {
           content: [{
@@ -253,14 +252,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully ${completed ? "completed" : "uncompleted"} node ${nodeId}`
           }]
         };
-      }, RetryPresets.WRITE).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error toggling completion status after retries: ${error.message}`
+            text: `Error toggling completion status: ${error.message}`
           }]
         };
-      });
+      }
     }
   },
 
@@ -281,7 +280,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, newParentId, priority, username, password }:
         { nodeId: string, newParentId: string, priority?: number, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      return retryManager.withRetry(async () => {
+      try {
         await workflowyClient.moveNode(nodeId, newParentId, priority, username, password);
         const priorityText = priority !== undefined ? ` at position ${priority}` : '';
         return {
@@ -290,14 +289,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully moved node ${nodeId} to parent ${newParentId}${priorityText}`
           }]
         };
-      }, RetryPresets.WRITE).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error moving node after retries: ${error.message}`
+            text: `Error moving node: ${error.message}`
           }]
         };
-      });
+      }
     }
   },
 
@@ -319,7 +318,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, maxDepth, includeFields, preview, username, password }:
         { nodeId: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      return retryManager.withRetry(async () => {
+      try {
         const node = await workflowyClient.getNodeById(nodeId, username, password, maxDepth, includeFields, preview);
         return {
           content: [{
@@ -327,14 +326,14 @@ export const workflowyTools: Record<string, any> = {
             text: JSON.stringify(node, null, 2)
           }]
         };
-      }, RetryPresets.STANDARD).catch((error: any) => {
+      } catch (error: any) {
         return {
           content: [{
             type: "text",
-            text: `Error retrieving node after retries: ${error.message}`
+            text: `Error retrieving node: ${error.message}`
           }]
         };
-      });
+      }
     }
   }
 };
