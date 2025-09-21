@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v1.0.0...v1.0.1) (2025-09-21)
+
+
+### Bug Fixes
+
+* rename project from mcp-workflowy to mcp-workflowy-remote and fix test failures ([9f87124](https://github.com/dseeker/mcp-workflowy-remote/commit/9f871247d68f70b2306c4343062266e503c58ad2))
+
 # [1.0.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.8.2...v1.0.0) (2025-09-21)
 
 
