@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v1.0.1...v1.0.2) (2025-09-21)
+
+
+### Bug Fixes
+
+* make GitHub Actions log parsing deployment-agnostic ([f226ffa](https://github.com/dseeker/mcp-workflowy-remote/commit/f226ffa59301204e641e3fb2a5a1934a7e509540))
+
 ## [1.0.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v1.0.0...v1.0.1) (2025-09-21)
 
 
