@@ -65,7 +65,7 @@ if (isCloudflareWorker) {
                 winston.format.errors({ stack: true }),
                 winston.format.json()
             ),
-            defaultMeta: { service: 'mcp-workflowy' },
+            defaultMeta: { service: 'mcp-workflowy-remote' },
             transports: [
                 // Write all logs to simple files (no rotation)
                 new winston.transports.File({ 

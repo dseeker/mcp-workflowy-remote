@@ -89,11 +89,6 @@ export class RetryManager {
    * Determine if an error should be retried
    */
   private shouldRetry(error: any, config: RetryConfig): boolean {
-    // Don't retry if explicitly marked as overloaded AND non-retryable
-    if (error.overloaded === true && error.retryable === false) {
-      return false;
-    }
-
     // Don't retry if explicitly marked as non-retryable
     if (error.retryable === false) {
       return false;
