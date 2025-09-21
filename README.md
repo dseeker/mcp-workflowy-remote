@@ -14,19 +14,57 @@ The Model Context Protocol (MCP) is a standardized way for AI models to interact
 
 ## 🚀 Quick Start
 
-### Option 1: Remote Server (Recommended)
+### Option 1: Claude Web Custom Connector (OAuth) 🎯
 
-Use our hosted server - no setup required:
+**For Claude Pro, Max, Team, or Enterprise users** - Secure OAuth integration:
 
+#### Easy Setup - OAuth Flow
+1. Go to **Claude Settings** → **Connectors** → **Add Connector** → **Custom Connector**
+2. **Name**: `Workflowy MCP`
+3. **Remote MCP server URL**: `https://{worker-name}.{cloudflare-account}.workers.dev/mcp`
+4. **OAuth Client ID**: *(leave empty)*
+5. **OAuth Client Secret**: *(leave empty)*
+6. **Test Connection** → Enter Workflowy credentials in secure form → **Authorize**
+
+#### Start Using
+Ask Claude natural language questions like:
+- *"Show me all my project notes in Workflowy"*
+- *"Create a new task under my Work list"*
+- *"Search for meeting notes from last week"*
+
+📖 **[OAuth Setup Guide →](docs/OAUTH_SETUP.md)** | **[Legacy Token Setup →](docs/ANTHROPIC_CONNECTOR_SETUP.md)**
+
+### Option 2: Remote Server (Claude Code CLI)
+
+Use our hosted server with Claude Code CLI:
+
+#### Step 1: Generate Your Authentication Token
 ```bash
-# Add the remote MCP server using Claude Code CLI
-claude mcp add --transport http workflowy-remote https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp --header "Authorization: Bearer ********="
+curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
+```
+
+Save the returned token from the response.
+
+#### Step 2: Add the MCP Server
+```bash
+# Add using JSON configuration (recommended)
+claude mcp add-json workflowy-remote '{
+  "type": "http", 
+  "url": "https://{worker-name}.{cloudflare-account}.workers.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer YOUR_TOKEN_HERE"
+  }
+}' -s local
 
 # Verify connection
 claude mcp list
 ```
 
-### Option 2: Local Server
+**Expected output:** `workflowy-remote: https://{worker-name}.{cloudflare-account}.workers.dev/mcp (HTTP) - ✓ Connected`
+
+### Option 3: Local Server
 
 ![NPM Version](https://img.shields.io/npm/v/mcp-workflowy) ![NPM Downloads](https://img.shields.io/npm/dm/mcp-workflowy)
 
@@ -41,9 +79,10 @@ npx mcp-workflowy server start
 
 ## ✨ Features
 
-- **🔗 Workflowy Integration**: Connect to your Workflowy account with username/password
-- **🌐 Multiple Deployment Options**: Local server or remote Cloudflare Workers
-- **🔒 Secure Authentication**: API key protection with client-provided credentials
+- **🎯 OAuth 2.0 Integration**: Secure OAuth flow for Claude Web Custom Connectors
+- **🔗 Multi-Auth Support**: OAuth, token-based, and API key authentication methods
+- **🌐 Multiple Deployment Options**: OAuth-enabled Workers, local server, or remote endpoints
+- **🔒 Enterprise Security**: OAuth 2.0 with PKCE, encrypted credential storage, token management
 - **⚡ Intelligent Metadata Hydration**: Enriched responses with context like parentName, hierarchy, siblings
 - **🎯 Workflowy-Focused Operations**: Operations designed for real Workflowy usage patterns
 - **🛠️ Complete CRUD Operations**: Create, read, update, delete, and move nodes
@@ -82,6 +121,13 @@ The MCP server enables natural AI interactions with your Workflowy data:
 - *"Find all incomplete items and tell me their hierarchy path"*
 - *"List my grocery list with completion status and priority order"*
 
+### Real-World Workflows
+- **Project Management**: *"Show me all incomplete tasks under 'Q1 Goals' and suggest priorities based on deadlines"*
+- **Content Planning**: *"Find all blog post ideas and organize them by topic and urgency"*
+- **Daily Planning**: *"Create a daily agenda from my 'Today' list and move completed items to 'Done'"*
+- **Research Organization**: *"Search for all research notes on AI and create a summary with source links"*
+- **Meeting Prep**: *"List all action items from last week's meetings and their current status"*
+
 ### Smart Field Selection
 ```javascript
 // Request only basic fields for performance
@@ -91,11 +137,26 @@ The MCP server enables natural AI interactions with your Workflowy data:
 { "includeFields": ["name", "parentName", "hierarchy", "siblings", "priority"] }
 ```
 
+### Authentication Examples
+```bash
+# Generate secure token for Claude connector
+curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your_username", "password": "your_password"}'
+
+# Use token in Claude custom connector configuration
+# Server URL: https://{worker-name}.{cloudflare-account}.workers.dev/mcp
+# Authentication: Bearer Token
+# API Key: [token from response above]
+```
+
 ## 🧪 Testing
 
-![Tests](https://img.shields.io/badge/tests-55_passing-brightgreen) ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-66_passing-brightgreen) ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 
-- ✅ **55 unit tests** with **223+ assertions**
+- ✅ **66+ unit tests** with **300+ assertions**
+- ✅ **Complete authentication flow testing** including token generation, validation, and security
+- ✅ **Anthropic connector integration testing** with production workflow validation
 - ✅ **100% parameter coverage** for advanced search features
 - ✅ **4-level deep hierarchy testing** with realistic mock data
 - ✅ **Complete error scenario coverage** for all operations
@@ -103,12 +164,14 @@ The MCP server enables natural AI interactions with your Workflowy data:
 ```bash
 npm test                    # All tests
 npm run test:coverage       # Coverage report
+npm test src/test/connector-authentication.test.ts  # Authentication tests only
 ```
 
 ## 📚 Documentation
 
 | Document | Description |
 |----------|-------------|
+| **[OAuth Setup Guide](docs/OAUTH_SETUP.md)** | Complete OAuth 2.0 setup for Claude Web Custom Connectors |
 | **[Installation Guide](docs/INSTALLATION.md)** | Detailed setup instructions for local and remote servers |
 | **[Deployment Guide](docs/DEPLOYMENT.md)** | Deploy your own instance to Cloudflare Workers |
 | **[API Reference](docs/API.md)** | Complete tool documentation and examples |
