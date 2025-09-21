@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { workflowyClient } from "../workflowy/client.js";
+import { retryManager, RetryPresets } from "../utils/retry.js";
 import log from "../utils/logger.js";
 
 export const workflowyTools: Record<string, any> = {
@@ -12,10 +13,10 @@ export const workflowyTools: Record<string, any> = {
       preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
     },
     handler: async ({ parentId, maxDepth, includeFields, preview, username, password }: { parentId?: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
-      try {
+      return retryManager.withRetry(async () => {
         const depth = maxDepth ?? 0;
         const fields = includeFields ?? ['id', 'name']; // Default to basic meta and tree structure only
-        
+
         const items = !!parentId
           ? await workflowyClient.getChildItems(parentId, username, password, depth, fields, preview)
           : await workflowyClient.getRootItems(username, password, depth, fields, preview);
@@ -25,14 +26,14 @@ export const workflowyTools: Record<string, any> = {
             text: JSON.stringify(items, null, 2)
           }]
         };
-      } catch (error: any) {
+      }, RetryPresets.STANDARD).catch((error: any) => {
         return {
           content: [{
             type: "text",
-            text: `Error listing nodes: ${error.message}`
+            text: `Error listing nodes after retries: ${error.message}`
           }]
         };
-      }
+      });
     },
     annotations: {
         title: "List nodes in Workflowy",
@@ -60,41 +61,36 @@ export const workflowyTools: Record<string, any> = {
         openWorldHint: false
     },
     handler: async ({ query, limit, maxDepth, includeFields, preview, username, password }: { query: string, limit?: number, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }, client: typeof workflowyClient) => {
-      const startTime = Date.now();
-      const toolParams = { query, limit, maxDepth, includeFields, preview, username: username ? '[PROVIDED]' : '[ENV_VAR]', password: password ? '[PROVIDED]' : '[ENV_VAR]' };
-      
-      try {
+      return retryManager.withRetry(async () => {
+        const startTime = Date.now();
         const items = await workflowyClient.search(query, username, password, limit, maxDepth, includeFields, preview);
-        
-        const responseSize = JSON.stringify(items, null, 2).length;
+
         const executionTime = Date.now() - startTime;
 
-        const response = {
+        return {
           content: [{
             type: "text",
             text: JSON.stringify(items, null, 2)
           }]
         };
-        
-        return response;
-        
-      } catch (error: any) {
-        const executionTime = Date.now() - startTime;
-        
-        const errorResponse = {
+      }, RetryPresets.STANDARD).catch((error: any) => {
+        return {
           content: [{
             type: "text",
-            text: `Error searching nodes: ${error.message}`
+            text: `Error searching nodes after retries: ${error.message}`
           }]
         };
-        
-        return errorResponse;
-      }
+      });
     }
   },
 
   create_node: {
     description: "Create a new node",
+    inputSchema: {
+      parentId: z.string().describe("ID of the parent node where the new node should be created"),
+      name: z.string().describe("Name/title for the new node"),
+      description: z.string().optional().describe("Description/note for the new node")
+    },
     annotations: {
         title: "Create a new node in Workflowy",
         readOnlyHint: false,
@@ -105,7 +101,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ parentId, name, description, username, password }:
         { parentId: string, name: string, description?: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      try {
+      return retryManager.withRetry(async () => {
         await workflowyClient.createNode(parentId, name, description, username, password);
         return {
           content: [{
@@ -113,14 +109,83 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully created node "${name}" under parent ${parentId}`
           }]
         };
-      } catch (error: any) {
+      }, RetryPresets.WRITE).catch((error: any) => {
         return {
           content: [{
             type: "text",
-            text: `Error creating node: ${error.message}`
+            text: `Error creating node after retries: ${error.message}`
           }]
         };
-      }
+      });
+    }
+  },
+
+  batch_create_nodes: {
+    description: "Create multiple nodes under the same parent in a single atomic operation",
+    inputSchema: {
+      parentId: z.string().describe("ID of the parent node where all new nodes should be created"),
+      nodes: z.array(z.object({
+        name: z.string().describe("Name/title for the node"),
+        description: z.string().optional().describe("Description/note for the node")
+      })).describe("Array of nodes to create")
+    },
+    annotations: {
+        title: "Create multiple nodes in Workflowy atomically",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+    },
+    handler: async ({ parentId, nodes, username, password }:
+        { parentId: string, nodes: Array<{name: string, description?: string}>, username?: string, password?: string },
+        client: typeof workflowyClient) => {
+      return retryManager.withRetry(async () => {
+        const startTime = Date.now();
+        const { wf } = await workflowyClient.createAuthenticatedClient(username, password);
+
+        const doc = await wf.getDocument();
+        const parent = workflowyClient.findNodeById(doc.root.items, parentId);
+
+        if (!parent) {
+          throw new Error(`Parent node with ID ${parentId} not found.`);
+        }
+
+        // Create all nodes in memory (batch operation)
+        const createdNodes = [];
+        for (const nodeData of nodes) {
+          const newNode = await parent.createItem();
+          newNode.setName(nodeData.name);
+          if (nodeData.description) {
+            newNode.setNote(nodeData.description);
+          }
+          createdNodes.push({
+            id: newNode.id,
+            name: nodeData.name,
+            description: nodeData.description
+          });
+        }
+
+        // Single save operation for all nodes (atomic)
+        if (doc.isDirty()) {
+          await doc.save();
+        }
+
+        const duration = Date.now() - startTime;
+
+        return {
+          content: [{
+            type: "text",
+            text: `Successfully created ${createdNodes.length} nodes under parent ${parentId} in ${duration}ms:\n${createdNodes.map(n => `- ${n.name} (${n.id})`).join('\n')}`
+          }]
+        };
+      }, RetryPresets.BATCH).catch((error: any) => {
+        return {
+          content: [{
+            type: "text",
+            text: `Error creating batch nodes after retries: ${error.message}`
+          }]
+        };
+      });
     }
   },
 
@@ -141,7 +206,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, name, description, username, password }:
         { nodeId: string, name?: string, description?: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      try {
+      return retryManager.withRetry(async () => {
         await workflowyClient.updateNode(nodeId, name, description, username, password);
         return {
           content: [{
@@ -149,14 +214,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully updated node ${nodeId}`
           }]
         };
-      } catch (error: any) {
+      }, RetryPresets.WRITE).catch((error: any) => {
         return {
           content: [{
             type: "text",
-            text: `Error updating node: ${error.message}`
+            text: `Error updating node after retries: ${error.message}`
           }]
         };
-      }
+      });
     }
   },
 
@@ -175,7 +240,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, username, password }:
         { nodeId: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      try {
+      return retryManager.withRetry(async () => {
         await workflowyClient.deleteNode(nodeId, username, password);
         return {
           content: [{
@@ -183,14 +248,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully deleted node ${nodeId}`
           }]
         };
-      } catch (error: any) {
+      }, RetryPresets.WRITE).catch((error: any) => {
         return {
           content: [{
             type: "text",
-            text: `Error deleting node: ${error.message}`
+            text: `Error deleting node after retries: ${error.message}`
           }]
         };
-      }
+      });
     }
   },
 
@@ -210,7 +275,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, completed, username, password }:
         { nodeId: string, completed: boolean, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      try {
+      return retryManager.withRetry(async () => {
         await workflowyClient.toggleComplete(nodeId, completed, username, password);
         return {
           content: [{
@@ -218,14 +283,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully ${completed ? "completed" : "uncompleted"} node ${nodeId}`
           }]
         };
-      } catch (error: any) {
+      }, RetryPresets.WRITE).catch((error: any) => {
         return {
           content: [{
             type: "text",
-            text: `Error toggling completion status: ${error.message}`
+            text: `Error toggling completion status after retries: ${error.message}`
           }]
         };
-      }
+      });
     }
   },
 
@@ -246,7 +311,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, newParentId, priority, username, password }:
         { nodeId: string, newParentId: string, priority?: number, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      try {
+      return retryManager.withRetry(async () => {
         await workflowyClient.moveNode(nodeId, newParentId, priority, username, password);
         const priorityText = priority !== undefined ? ` at position ${priority}` : '';
         return {
@@ -255,14 +320,14 @@ export const workflowyTools: Record<string, any> = {
             text: `Successfully moved node ${nodeId} to parent ${newParentId}${priorityText}`
           }]
         };
-      } catch (error: any) {
+      }, RetryPresets.WRITE).catch((error: any) => {
         return {
           content: [{
             type: "text",
-            text: `Error moving node: ${error.message}`
+            text: `Error moving node after retries: ${error.message}`
           }]
         };
-      }
+      });
     }
   },
 
@@ -284,7 +349,7 @@ export const workflowyTools: Record<string, any> = {
     handler: async ({ nodeId, maxDepth, includeFields, preview, username, password }:
         { nodeId: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string },
         client: typeof workflowyClient) => {
-      try {
+      return retryManager.withRetry(async () => {
         const node = await workflowyClient.getNodeById(nodeId, username, password, maxDepth, includeFields, preview);
         return {
           content: [{
@@ -292,14 +357,14 @@ export const workflowyTools: Record<string, any> = {
             text: JSON.stringify(node, null, 2)
           }]
         };
-      } catch (error: any) {
+      }, RetryPresets.STANDARD).catch((error: any) => {
         return {
           content: [{
             type: "text",
-            text: `Error retrieving node: ${error.message}`
+            text: `Error retrieving node after retries: ${error.message}`
           }]
         };
-      }
+      });
     }
   }
 };
