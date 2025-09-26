@@ -780,6 +780,43 @@ export default {
     }
 
 
+    // Debug endpoint for Claude Desktop connectivity testing
+    if (url.pathname === '/debug-claude-desktop') {
+      const userAgent = request.headers.get('User-Agent') || 'unknown';
+      const referer = request.headers.get('Referer') || 'unknown';
+
+      logger.info('Claude Desktop debug request', {
+        userAgent,
+        referer,
+        method: request.method,
+        url: request.url,
+        headers: Object.fromEntries(request.headers.entries())
+      });
+
+      return new Response(JSON.stringify({
+        message: "Claude Desktop connectivity test",
+        timestamp: new Date().toISOString(),
+        method: request.method,
+        userAgent,
+        referer,
+        version: server.version,
+        environment: config.getEnvironment(),
+        endpoints: {
+          mcp: '/mcp',
+          oauth_metadata: '/.well-known/oauth-authorization-server',
+          oauth_register: '/oauth/register',
+          oauth_authorize: '/oauth/authorize',
+          oauth_token: '/oauth/token'
+        }
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, User-Agent, Referer'
+        }
+      });
+    }
+
     // Temporary debug endpoint to check API key configuration
     if (url.pathname === '/debug-keys') {
       const allowedKeys = env.ALLOWED_API_KEYS?.split(',') || [];
@@ -789,7 +826,7 @@ export default {
         firstKeyLength: allowedKeys.length > 0 ? allowedKeys[0]?.trim()?.length : 0,
         environment: config.getEnvironment()
       }), {
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
         }
@@ -897,16 +934,75 @@ export default {
         issuer: baseUrl,
         authorization_endpoint: `${baseUrl}/oauth/authorize`,
         token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`, // Dynamic Client Registration
         scopes_supported: ['workflowy:read', 'workflowy:write'],
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code', 'refresh_token'],
-        token_endpoint_auth_methods_supported: ['none']
+        token_endpoint_auth_methods_supported: ['none'],
+        registration_endpoint_auth_methods_supported: ['none']
       }), {
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
         }
       });
+    }
+
+    // Dynamic Client Registration (RFC 7591) - For Claude Desktop compatibility
+    if (url.pathname === '/oauth/register') {
+      if (request.method === 'POST') {
+        try {
+          const registrationRequest = await request.json();
+
+          // Generate a client ID for Claude Desktop
+          const client_id = `claude_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+          // Store basic client info (in production, you'd use KV storage)
+          const clientInfo = {
+            client_id,
+            client_name: registrationRequest.client_name || 'Claude Desktop',
+            redirect_uris: registrationRequest.redirect_uris || ['https://claude.ai/api/mcp/auth_callback'],
+            grant_types: ['authorization_code', 'refresh_token'],
+            response_types: ['code'],
+            scope: 'workflowy:read workflowy:write'
+          };
+
+          logger.info('Dynamic client registration', {
+            client_id,
+            client_name: clientInfo.client_name,
+            redirect_uris: clientInfo.redirect_uris
+          });
+
+          return new Response(JSON.stringify({
+            client_id: clientInfo.client_id,
+            client_name: clientInfo.client_name,
+            redirect_uris: clientInfo.redirect_uris,
+            grant_types: clientInfo.grant_types,
+            response_types: clientInfo.response_types,
+            scope: clientInfo.scope,
+            client_id_issued_at: Math.floor(Date.now() / 1000),
+            // Note: We don't require client_secret for this implementation
+          }), {
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+
+        } catch (error: any) {
+          logger.error('Dynamic client registration failed', error);
+          return new Response(JSON.stringify({
+            error: 'invalid_request',
+            error_description: 'Invalid registration request'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+      }
     }
 
     // OAuth Authorization Endpoint - No authentication required
