@@ -34,7 +34,8 @@
       "WebFetch(domain:developers.cloudflare.com)",
       "mcp__workflowy__list_nodes",
       "Bash(git pull:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "WebFetch(domain:femail.life)"
     ],
     "deny": [],
     "ask": []
