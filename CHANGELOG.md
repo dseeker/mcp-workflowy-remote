@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v1.0.1...v1.1.0) (2025-09-26)
+
+
+### Bug Fixes
+
+* make GitHub Actions log parsing deployment-agnostic ([f226ffa](https://github.com/dseeker/mcp-workflowy-remote/commit/f226ffa59301204e641e3fb2a5a1934a7e509540))
+* resolve 429 rate limiting issues by removing redundant retry logic ([b679374](https://github.com/dseeker/mcp-workflowy-remote/commit/b6793748edd18027097ee7687db1c96aaeca5591))
+
+
+### Features
+
+* restore local development changes after remote filter ([f26195b](https://github.com/dseeker/mcp-workflowy-remote/commit/f26195bf3875e5ae9a5c7a9b4554344f6d17935c))
+
 ## [1.0.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v1.0.0...v1.0.1) (2025-09-21)
 
 
