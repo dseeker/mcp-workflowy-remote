@@ -35,13 +35,7 @@
       "mcp__workflowy__list_nodes",
       "Bash(git pull:*)",
       "Bash(npm test:*)",
-      "WebFetch(domain:support.anthropic.com)",
-      "Bash(gh run list:*)",
-      "Bash(gh run view:*)",
-      "Bash(gh repo view:*)",
-      "Read(//Users/A200326959/Development/mcp-substack-author/**)",
-      "Bash(node:*)",
-      "Bash(gh workflow:*)"
+      "WebFetch(domain:femail.life)"
     ],
     "deny": [],
     "ask": []

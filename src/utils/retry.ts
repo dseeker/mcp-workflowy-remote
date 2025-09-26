@@ -68,12 +68,14 @@ export class RetryManager {
         }
 
         // Calculate delay with exponential backoff and jitter
-        const delay = this.calculateDelay(attempt, finalConfig);
-        
-        console.log(`Retry attempt ${attempt}/${finalConfig.maxAttempts} after ${delay}ms:`, {
+        const delay = this.calculateDelay(attempt, finalConfig, error);
+
+        console.log(`[RETRY] Attempt ${attempt}/${finalConfig.maxAttempts} after ${delay}ms delay:`, {
           error: error.message,
+          status: error.status,
           retryable: error.retryable,
-          overloaded: error.overloaded
+          overloaded: error.overloaded,
+          errorType: error.constructor.name
         });
 
         await this.sleep(delay);
@@ -87,11 +89,6 @@ export class RetryManager {
    * Determine if an error should be retried
    */
   private shouldRetry(error: any, config: RetryConfig): boolean {
-    // Don't retry if explicitly marked as overloaded
-    if (error.overloaded === true) {
-      return false;
-    }
-
     // Don't retry if explicitly marked as non-retryable
     if (error.retryable === false) {
       return false;
@@ -138,13 +135,20 @@ export class RetryManager {
   /**
    * Calculate delay with exponential backoff and jitter
    */
-  private calculateDelay(attempt: number, config: RetryConfig): number {
-    const exponentialDelay = config.baseDelayMs * Math.pow(config.backoffMultiplier, attempt - 1);
+  private calculateDelay(attempt: number, config: RetryConfig, error?: any): number {
+    let baseDelay = config.baseDelayMs;
+
+    // Use longer delays for rate limiting/overload errors
+    if (error?.overloaded === true || error?.status === 429) {
+      baseDelay = Math.max(baseDelay, 5000); // Minimum 5 second delay for rate limits
+    }
+
+    const exponentialDelay = baseDelay * Math.pow(config.backoffMultiplier, attempt - 1);
     const cappedDelay = Math.min(exponentialDelay, config.maxDelayMs);
-    
+
     // Add jitter (±25% randomization)
     const jitter = cappedDelay * 0.25 * (Math.random() - 0.5);
-    
+
     return Math.max(0, Math.round(cappedDelay + jitter));
   }
 
@@ -172,27 +176,27 @@ export class RetryManager {
  * Retry configuration presets for different operation types
  */
 export const RetryPresets = {
-  // Quick operations (authentication, node lookup)
+  // Quick operations (authentication, node lookup) - enhanced for rate limiting
   QUICK: {
-    maxAttempts: 2,
-    baseDelayMs: 500,
-    maxDelayMs: 2000,
-    backoffMultiplier: 2
+    maxAttempts: 15, // Very persistent for auth rate limits
+    baseDelayMs: 3000, // Start with 3 seconds
+    maxDelayMs: 180000, // Allow up to 3 minutes for auth
+    backoffMultiplier: 1.5 // Slower escalation
   },
 
   // Standard operations (list, search)
   STANDARD: {
-    maxAttempts: 3,
-    baseDelayMs: 1000,
-    maxDelayMs: 8000,
-    backoffMultiplier: 2
+    maxAttempts: 15, // Much more persistent
+    baseDelayMs: 2000,
+    maxDelayMs: 240000, // Allow up to 4 minutes
+    backoffMultiplier: 1.6
   },
 
   // Write operations (create, update, delete)
   WRITE: {
-    maxAttempts: 2,
-    baseDelayMs: 1000,
-    maxDelayMs: 5000,
+    maxAttempts: 20, // Very persistent for important operations
+    baseDelayMs: 2000,
+    maxDelayMs: 300000, // Allow up to 5 minutes
     backoffMultiplier: 1.5,
     nonRetryableErrors: [
       'AuthenticationError',
@@ -205,10 +209,28 @@ export const RetryPresets = {
 
   // Long operations (search, bulk operations)
   LONG: {
-    maxAttempts: 4,
-    baseDelayMs: 2000,
-    maxDelayMs: 30000,
-    backoffMultiplier: 2
+    maxAttempts: 25, // Even more persistent for long operations
+    baseDelayMs: 3000,
+    maxDelayMs: 360000, // Allow up to 6 minutes
+    backoffMultiplier: 1.4
+  },
+
+  // Batch operations with aggressive rate limit handling
+  BATCH: {
+    maxAttempts: 20, // Very persistent for batch operations
+    baseDelayMs: 3000,
+    maxDelayMs: 300000, // Up to 5 minutes for severe rate limiting
+    backoffMultiplier: 1.5, // Slower escalation to stay within limits
+    retryableErrors: ['429', 'OverloadError', 'rate limit']
+  },
+
+  // Ultra-persistent for rate limiting - almost never give up
+  RATE_LIMIT_PERSISTENT: {
+    maxAttempts: 50, // Very high retry count
+    baseDelayMs: 5000, // Start with 5 seconds
+    maxDelayMs: 600000, // Up to 10 minutes maximum delay
+    backoffMultiplier: 1.3, // Very slow escalation
+    retryableErrors: ['429', 'OverloadError', 'rate limit', '503']
   }
 } as const;
 

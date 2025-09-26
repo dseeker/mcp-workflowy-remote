@@ -1,9 +1,9 @@
 {
-  "name": "mcp-workflowy",
-  "version": "0.10.7",
+  "name": "mcp-workflowy-remote",
+  "version": "1.0.1",
   "description": "MCP server that lets agents talk to Workflowy",
   "bin": {
-    "mcp-workflowy": "dist/index.js"
+    "mcp-workflowy-remote": "dist/index.js"
   },
   "type": "module",
   "module": "./src/index.ts",
