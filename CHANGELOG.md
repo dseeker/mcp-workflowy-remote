@@ -1,3 +1,10 @@
+## [2.0.7](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.6...v2.0.7) (2025-09-26)
+
+
+### Bug Fixes
+
+* Handle JSON-RPC notifications without id ([53c0010](https://github.com/dseeker/mcp-workflowy-remote/commit/53c0010a59228e858862d47d359d5a9592f024eb))
+
 ## [2.0.6](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.5...v2.0.6) (2025-09-26)
 
 ## [2.0.5](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.4...v2.0.5) (2025-09-26)
