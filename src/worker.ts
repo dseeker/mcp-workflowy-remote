@@ -595,7 +595,23 @@ export default {
     }
 
     const url = new URL(request.url);
-    
+
+    // Handle public endpoints that don't require authentication
+    const publicEndpoints = [
+      '/health',
+      '/oauth/register',
+      '/oauth/authorize',
+      '/oauth/token',
+      '/.well-known/oauth-authorization-server',
+      '/.well-known/oauth-authorization-server/mcp',
+      '/connector/setup',
+      '/debug-claude-desktop',
+      '/debug-keys',
+      '/favicon.ico'
+    ];
+
+    const isPublicEndpoint = publicEndpoints.some(path => url.pathname === path || url.pathname.startsWith(path));
+
     // Server-Sent Events endpoint for MCP communication (authenticated)
     if (url.pathname === '/sse') {
       const authError = validateAuth();
@@ -844,12 +860,36 @@ export default {
           const responses: JsonRpcResponse[] = [];
 
           for (const messageText of messages) {
-            const message = JSON.parse(messageText);
-            
-            // Handle JSON-RPC request with logging
-            if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
-              const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers, logger);
-              responses.push(response);
+            try {
+              const message = JSON.parse(messageText);
+
+              // Handle JSON-RPC request with logging
+              if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
+                const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers, logger);
+                responses.push(response);
+              } else {
+                // Handle invalid JSON-RPC format
+                logger.warn('Invalid JSON-RPC message format', { message });
+                responses.push({
+                  jsonrpc: "2.0",
+                  id: message.id || null,
+                  error: {
+                    code: -32600,
+                    message: "Invalid JSON-RPC request format"
+                  }
+                });
+              }
+            } catch (parseError: any) {
+              // Handle JSON parsing errors
+              logger.error('Failed to parse JSON-RPC message', parseError);
+              responses.push({
+                jsonrpc: "2.0",
+                id: null,
+                error: {
+                  code: -32700,
+                  message: `Parse error: ${parseError.message}`
+                }
+              });
             }
           }
 
@@ -940,6 +980,37 @@ export default {
       }), {
         headers: {
           'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // OAuth Authorization Server Metadata for MCP (same as above but with /mcp suffix)
+    if (url.pathname === '/.well-known/oauth-authorization-server/mcp') {
+      const baseUrl = `${url.protocol}//${url.host}`;
+      return new Response(JSON.stringify({
+        issuer: baseUrl,
+        authorization_endpoint: `${baseUrl}/oauth/authorize`,
+        token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/oauth/register`,
+        scopes_supported: ['workflowy:read', 'workflowy:write'],
+        response_types_supported: ['code'],
+        grant_types_supported: ['authorization_code', 'refresh_token'],
+        token_endpoint_auth_methods_supported: ['none'],
+        registration_endpoint_auth_methods_supported: ['none']
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // Favicon endpoint - return empty response
+    if (url.pathname === '/favicon.ico') {
+      return new Response(null, {
+        status: 204,
+        headers: {
           'Access-Control-Allow-Origin': '*'
         }
       });
@@ -1186,8 +1257,10 @@ export default {
     }
 
     // Legacy REST endpoints for backward compatibility (authenticated)
-    const authError = validateAuth();
-    if (authError) return authError;
+    if (!isPublicEndpoint) {
+      const authError = validateAuth();
+      if (authError) return authError;
+    }
 
     // List available tools (legacy)
     if (url.pathname === '/tools') {
