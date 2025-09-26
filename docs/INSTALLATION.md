@@ -183,15 +183,16 @@ workflowy-remote: https://{worker-name}.{cloudflare-account}.workers.dev/mcp (HT
 
 ### Quick Install
 
-![NPM Version](https://img.shields.io/npm/v/mcp-workflowy)
-![NPM Downloads](https://img.shields.io/npm/dm/mcp-workflowy)
-
 ```bash
-# Install the package globally
-npm install -g mcp-workflowy
+# Clone the repository
+git clone https://github.com/dseeker/mcp-workflowy-remote.git
+cd mcp-workflowy-remote
 
-# Or use npx to run it directly
-npx mcp-workflowy server start
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
 ```
 
 ### Configuration
@@ -206,11 +207,11 @@ WORKFLOWY_PASSWORD=your_password_here
 ### Starting the Server
 
 ```bash
-# If installed globally
-mcp-workflowy server start
+# Start the local server
+npm start
 
-# Using npx
-npx mcp-workflowy server start
+# Or run directly with node
+node dist/index.js
 ```
 
 ## Client Configuration
@@ -342,7 +343,7 @@ claude mcp list  # Should show: workflowy-remote: ... - ✓ Connected
 ```
 
 **For Local Server Users:**
-1. Start the local MCP server: `npx mcp-workflowy server start`
+1. Start the local MCP server: `npm start`
 2. Configure your AI assistant to connect to `localhost:3000` (or your configured port)
 3. The AI assistant will now be able to read and manipulate your Workflowy lists
 
@@ -358,4 +359,4 @@ For other AI assistants (like ChatGPT with MCP support):
 2. **Local**: Start the local server and connect to the local endpoint
 
 ## One-Click Local Install
-[![Install with NPX in VS Code](https://img.shields.io/badge/VS_Code-Install_mcp_workflowy_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=Workflowy%20MCP&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mcp-workflowy%40latest%22%2C%22server%22%2C%22start%22%5D%2C%20%22env%22%3A%20%7B%22WORKFLOWY_USERNAME%22%3A%22%22%2C%20%22WORKFLOWY_PASSWORD%22%3A%20%22%22%7D%7D)
+**Note:** This project is available as source code for self-deployment and does not publish to NPM.

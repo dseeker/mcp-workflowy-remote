@@ -15,7 +15,7 @@ export const workflowyTools: Record<string, any> = {
       try {
         const depth = maxDepth ?? 0;
         const fields = includeFields ?? ['id', 'name']; // Default to basic meta and tree structure only
-        
+
         const items = !!parentId
           ? await workflowyClient.getChildItems(parentId, username, password, depth, fields, preview)
           : await workflowyClient.getRootItems(username, password, depth, fields, preview);
@@ -60,41 +60,36 @@ export const workflowyTools: Record<string, any> = {
         openWorldHint: false
     },
     handler: async ({ query, limit, maxDepth, includeFields, preview, username, password }: { query: string, limit?: number, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }, client: typeof workflowyClient) => {
-      const startTime = Date.now();
-      const toolParams = { query, limit, maxDepth, includeFields, preview, username: username ? '[PROVIDED]' : '[ENV_VAR]', password: password ? '[PROVIDED]' : '[ENV_VAR]' };
-      
       try {
+        const startTime = Date.now();
         const items = await workflowyClient.search(query, username, password, limit, maxDepth, includeFields, preview);
-        
-        const responseSize = JSON.stringify(items, null, 2).length;
+
         const executionTime = Date.now() - startTime;
 
-        const response = {
+        return {
           content: [{
             type: "text",
             text: JSON.stringify(items, null, 2)
           }]
         };
-        
-        return response;
-        
       } catch (error: any) {
-        const executionTime = Date.now() - startTime;
-        
-        const errorResponse = {
+        return {
           content: [{
             type: "text",
             text: `Error searching nodes: ${error.message}`
           }]
         };
-        
-        return errorResponse;
       }
     }
   },
 
   create_node: {
     description: "Create a new node",
+    inputSchema: {
+      parentId: z.string().describe("ID of the parent node where the new node should be created"),
+      name: z.string().describe("Name/title for the new node"),
+      description: z.string().optional().describe("Description/note for the new node")
+    },
     annotations: {
         title: "Create a new node in Workflowy",
         readOnlyHint: false,
@@ -121,6 +116,45 @@ export const workflowyTools: Record<string, any> = {
           }]
         };
       }
+    }
+  },
+
+  batch_create_nodes: {
+    description: "Create multiple nodes under the same parent in a single atomic operation",
+    inputSchema: {
+      parentId: z.string().describe("ID of the parent node where all new nodes should be created"),
+      nodes: z.array(z.object({
+        name: z.string().describe("Name/title for the node"),
+        description: z.string().optional().describe("Description/note for the node")
+      })).describe("Array of nodes to create")
+    },
+    annotations: {
+        title: "Create multiple nodes in Workflowy atomically",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+    },
+    handler: async ({ parentId, nodes, username, password }:
+        { parentId: string, nodes: Array<{name: string, description?: string}>, username?: string, password?: string },
+        client: typeof workflowyClient) => {
+      try {
+        const result = await workflowyClient.batchCreateNodes(parentId, nodes, username, password);
+
+        return {
+          content: [{
+            type: "text",
+            text: `Successfully created ${result.nodesCreated} nodes under parent ${parentId} in ${result.timing}:\n${result.nodes.map(n => `- ${n.name} (${n.id})`).join('\n')}`
+          }]
+        };
+      } catch (error: any) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error creating batch nodes: ${error.message}`
+          }]
+        };
+      };
     }
   },
 
