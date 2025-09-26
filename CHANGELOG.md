@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.0...v2.0.1) (2025-09-26)
+
+
+### Bug Fixes
+
+* Add MCP-level authentication for tool calls ([ecc047b](https://github.com/dseeker/mcp-workflowy-remote/commit/ecc047b290cd46ddca0562e71dbcc5b488e059f9))
+
 # [2.0.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v1.1.0...v2.0.0) (2025-09-26)
 
 
