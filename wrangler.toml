@@ -4,12 +4,24 @@ compatibility_flags = ["nodejs_compat", "nodejs_als"]
 
 main = "dist/worker.js"
 
+# Enable Logpush for automatic log collection
+logpush = true
+
 # KV Namespaces for OAuth storage
 # Note: KV storage will be configured dynamically during deployment
 # OAuth will work with or without KV storage (credentials are passed in OAuth flow)
 # kv_namespaces = [
 #   { binding = "OAUTH_KV", id = "oauth-kv-namespace-id", preview_id = "oauth-kv-preview-id" }
 # ]
+
+# Observability configuration for comprehensive logging
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+head_sampling_rate = 1.0  # Log 100% of requests (adjust for high-traffic scenarios)
 
 # Default configuration (production)
 vars = { ENVIRONMENT = "production", DEBUG = "false" }
