@@ -78,7 +78,7 @@ class WorkflowyClient {
 
             if (!loginUsername || !loginPassword) {
                 this.structuredLogger.error('Workflowy credentials not provided');
-                throw new AuthenticationError('Workflowy credentials not provided. Please set WORKFLOWY_USERNAME and WORKFLOWY_PASSWORD environment variables.');
+                throw new AuthenticationError('Workflowy credentials not provided. Please provide credentials through the MCP client or appropriate headers.');
             }
 
             try {

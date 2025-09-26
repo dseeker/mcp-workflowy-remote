@@ -31,5 +31,4 @@ head_sampling_rate = 1.0  # Log 100% of requests (adjust for high-traffic scenar
 
 # For private environment variables like API keys, use:
 # wrangler secret put ALLOWED_API_KEYS
-# wrangler secret put WORKFLOWY_USERNAME  # Optional: fallback username
-# wrangler secret put WORKFLOWY_PASSWORD  # Optional: fallback password
+# Note: WORKFLOWY_USERNAME/WORKFLOWY_PASSWORD not needed - worker uses OIDC authentication

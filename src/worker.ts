@@ -155,10 +155,10 @@ class WorkflowyMCPServer {
       }
     }
 
-    // Priority: 1. Client-provided credentials, 2. Headers, 3. Environment fallback
+    // Priority: 1. Client-provided credentials, 2. Headers (no environment fallback for workers)
     return {
-      username: params.workflowy_username || headers?.get('X-Workflowy-Username') || env.WORKFLOWY_USERNAME,
-      password: params.workflowy_password || headers?.get('X-Workflowy-Password') || env.WORKFLOWY_PASSWORD
+      username: params.workflowy_username || headers?.get('X-Workflowy-Username'),
+      password: params.workflowy_password || headers?.get('X-Workflowy-Password')
     };
   }
 
@@ -615,11 +615,8 @@ export default {
     // Health check endpoint with service status (unauthenticated)
     if (url.pathname === '/health') {
       try {
-        // Quick health check with minimal credentials (if available)
-        const healthCheck = await workflowyClient.checkServiceHealth(
-          env.WORKFLOWY_USERNAME, 
-          env.WORKFLOWY_PASSWORD
-        );
+        // Basic service health check without credentials (worker uses OIDC authentication)
+        const healthCheck = await workflowyClient.checkServiceHealth();
         
         const responseTime = Date.now() - startTime;
         logger.info('Health check completed', {
