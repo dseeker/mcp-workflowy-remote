@@ -1,3 +1,10 @@
+## [2.0.4](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.3...v2.0.4) (2025-09-26)
+
+
+### Bug Fixes
+
+* Update wrangler.toml observability and config vars ([7daf5e0](https://github.com/dseeker/mcp-workflowy-remote/commit/7daf5e08cd0ae5502eee1ea757cd5d5a862a1c5d))
+
 ## [2.0.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.2...v2.0.3) (2025-09-26)
 
 ## [2.0.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.1...v2.0.2) (2025-09-26)
