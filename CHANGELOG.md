@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.1...v2.0.2) (2025-09-26)
+
+
+### Bug Fixes
+
+* Add endpoints for Claude Desktop debug and OAuth registration ([d5b92c4](https://github.com/dseeker/mcp-workflowy-remote/commit/d5b92c4ad1e7c3b309b615e0400edc270f936f5a))
+
 ## [2.0.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.0...v2.0.1) (2025-09-26)
 
 
