@@ -499,12 +499,19 @@ export default {
               try {
                 const message = JSON.parse(messageText);
                 
-                if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
-                  const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers);
-                  
-                  // Send response via SSE
-                  const sseData = `data: ${JSON.stringify(response)}\n\n`;
-                  await writer.write(encoder.encode(sseData));
+                if (message.jsonrpc === "2.0" && message.method) {
+                  if (message.id !== undefined) {
+                    // JSON-RPC Request (has id)
+                    const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers);
+
+                    // Send response via SSE
+                    const sseData = `data: ${JSON.stringify(response)}\n\n`;
+                    await writer.write(encoder.encode(sseData));
+                  } else {
+                    // JSON-RPC Notification (no id) - just acknowledge receipt
+                    console.log('Received SSE notification:', message.method);
+                    // Notifications don't require responses
+                  }
                 }
               } catch (error: any) {
                 // Send error via SSE
@@ -863,10 +870,17 @@ export default {
             try {
               const message = JSON.parse(messageText);
 
-              // Handle JSON-RPC request with logging
-              if (message.jsonrpc === "2.0" && message.method && message.id !== undefined) {
-                const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers, logger);
-                responses.push(response);
+              // Handle JSON-RPC request and notification with logging
+              if (message.jsonrpc === "2.0" && message.method) {
+                if (message.id !== undefined) {
+                  // JSON-RPC Request (has id)
+                  const response = await server.handleJsonRpcRequest(message as JsonRpcRequest, env, request.headers, logger);
+                  responses.push(response);
+                } else {
+                  // JSON-RPC Notification (no id) - just acknowledge receipt
+                  logger.info('Received JSON-RPC notification', { method: message.method });
+                  // Notifications don't require responses
+                }
               } else {
                 // Handle invalid JSON-RPC format
                 logger.warn('Invalid JSON-RPC message format', { message });
