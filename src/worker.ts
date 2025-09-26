@@ -287,6 +287,36 @@ class WorkflowyMCPServer {
           // Extract authorization_token from request params (Claude MCP connector support)
           const authorizationToken = request.params?.authorization_token;
 
+          // Validate authentication at MCP level (check both HTTP headers and authorization_token)
+          const httpApiKey = headers?.get('Authorization')?.replace('Bearer ', '') || null;
+          const hasValidAuth =
+            (httpApiKey && this.validateApiKey(httpApiKey, env)) ||
+            (authorizationToken && (
+              authorizationToken.startsWith('oauth_access_') ||
+              this.isValidUserToken(authorizationToken)
+            ));
+
+          if (!hasValidAuth) {
+            requestLogger.warn('MCP tool call authentication failed', {
+              hasHttpApiKey: !!httpApiKey,
+              hasAuthorizationToken: !!authorizationToken,
+              toolName
+            });
+
+            return {
+              jsonrpc: "2.0",
+              id: request.id,
+              error: {
+                code: -32600,
+                message: "Authentication required. Provide credentials via Authorization header or authorization_token parameter.",
+                data: {
+                  retryable: false,
+                  authMethods: ["Bearer token in Authorization header", "authorization_token in request params"]
+                }
+              }
+            };
+          }
+
           // Validate and execute tool with caching and deduplication
           const validatedParams = tool.inputSchema.parse(toolArgs);
 
@@ -768,9 +798,8 @@ export default {
 
     // MCP endpoint - implements MCP HTTP transport protocol
     if (url.pathname === '/mcp') {
-      // Validate authentication for MCP endpoint
-      const authError = validateAuth();
-      if (authError) return authError;
+      // Note: Authentication is handled at the MCP JSON-RPC level to support authorization_token parameter
+      // This allows Claude connectors to send credentials in the MCP request rather than HTTP headers
 
       if (request.method === 'POST') {
         try {
