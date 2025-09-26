@@ -1,3 +1,36 @@
+# [2.0.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v1.1.0...v2.0.0) (2025-09-26)
+
+
+### Bug Fixes
+
+* Add support for authorization token in credential extraction ([4e06c53](https://github.com/dseeker/mcp-workflowy-remote/commit/4e06c5343c12e107f3a41a6f64c119dc2d6869e7))
+* make GitHub Actions log parsing deployment-agnostic ([cf833eb](https://github.com/dseeker/mcp-workflowy-remote/commit/cf833ebd537118f7e7e8a30bac91c2ebfe33f782))
+* rename project from mcp-workflowy to mcp-workflowy-remote and fix test failures ([efad2c6](https://github.com/dseeker/mcp-workflowy-remote/commit/efad2c6a3036866c58105511237c37a837ae27ed))
+* resolve 429 rate limiting issues by removing redundant retry logic ([6b3e103](https://github.com/dseeker/mcp-workflowy-remote/commit/6b3e10348327c1aba5a9477c82b3aa725093e4aa))
+* restore batch operations functionality after merge ([e104d1b](https://github.com/dseeker/mcp-workflowy-remote/commit/e104d1b99679be4eaf417205e9a4933fc8e572ad))
+
+
+### Features
+
+* Add robust retry logic and batch node creation to Workflowy tools ([5501798](https://github.com/dseeker/mcp-workflowy-remote/commit/5501798cc4297e55271db097a3608716523aeee7))
+* integrate enhanced retry logic with upstream OAuth and metadata features ([8c02ff9](https://github.com/dseeker/mcp-workflowy-remote/commit/8c02ff9aba540334b866770d257f441eee2cc42c))
+* restore local development changes after remote filter ([f4848e4](https://github.com/dseeker/mcp-workflowy-remote/commit/f4848e46b112b1e85eb1982f10dbce4e5daf2db5))
+
+
+### BREAKING CHANGES
+
+* Enhanced retry logic now uses ultra-persistent presets that may change operation timing behavior for rate-limited scenarios.
+
+- Merge upstream OAuth 2.0 authentication (v0.10.7)
+- Integrate enhanced retry logic with rate limiting
+- Preserve batch operations with atomic transactions
+- Add BATCH and RATE_LIMIT_PERSISTENT retry presets
+- Enhance error handling with configurable OverloadError
+- Maintain backwards compatibility for all MCP tools
+
+This release combines the latest upstream features with our enhanced
+retry infrastructure for production-grade rate limit handling.
+
 # [1.1.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v1.0.1...v1.1.0) (2025-09-26)
 
 
