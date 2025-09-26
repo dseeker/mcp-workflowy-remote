@@ -25,7 +25,12 @@
     "deploy:preview": "wrangler deploy --env preview",
     "dev:worker": "wrangler dev",
     "dev:preview": "wrangler dev --env preview",
-    "dry-run": "bash scripts/dry-run-deploy.sh"
+    "dry-run": "bash scripts/dry-run-deploy.sh",
+    "logs": "node scripts/collect-logs.js",
+    "logs:advanced": "node scripts/collect-logs-advanced.js",
+    "logs:historical": "node scripts/collect-logs-advanced.js --mode historical",
+    "logs:realtime": "node scripts/collect-logs-advanced.js --mode realtime",
+    "logs:both": "node scripts/collect-logs-advanced.js --mode both"
   },
   "engines": {
     "node": ">=18"
