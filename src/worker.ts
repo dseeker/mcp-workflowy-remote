@@ -45,7 +45,7 @@ class WorkflowyMCPServer {
   protocolVersion = "2024-11-05";
 
   // Tool definitions adapted from FastMCP tools
-  tools: { [key: string]: { description: string, inputSchema: z.ZodSchema, handler: (params: any, env: any, headers?: Headers) => Promise<any> } } = {};
+  tools: { [key: string]: { description: string, inputSchema: z.ZodSchema, handler: (params: any, env: any, headers?: Headers, authorizationToken?: string) => Promise<any> } } = {};
 
   constructor() {
     // Convert FastMCP tools to MCP format
@@ -117,12 +117,29 @@ class WorkflowyMCPServer {
     }
   }
 
-  private async extractCredentials(params: any, env: any, headers?: Headers): Promise<{ username?: string, password?: string }> {
-    // First check if we have a user token from Authorization header
+  private async extractCredentials(params: any, env: any, headers?: Headers, authorizationToken?: string): Promise<{ username?: string, password?: string }> {
+    // First check for authorization_token parameter (Claude MCP connector)
+    if (authorizationToken) {
+      // Check for OAuth access token
+      if (authorizationToken.startsWith('oauth_access_')) {
+        const oauthCredentials = await this.extractCredentialsFromOAuthToken(authorizationToken, env);
+        if (oauthCredentials) {
+          return oauthCredentials;
+        }
+      }
+
+      // Check for user token from connector setup
+      const credentials = this.extractCredentialsFromToken(authorizationToken);
+      if (credentials) {
+        return credentials;
+      }
+    }
+
+    // Second check if we have a user token from Authorization header
     const authHeader = headers?.get('Authorization');
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.replace('Bearer ', '');
-      
+
       // Check for OAuth access token
       if (token.startsWith('oauth_access_')) {
         const oauthCredentials = await this.extractCredentialsFromOAuthToken(token, env);
@@ -130,14 +147,14 @@ class WorkflowyMCPServer {
           return oauthCredentials;
         }
       }
-      
+
       // Check for user token from connector setup
       const credentials = this.extractCredentialsFromToken(token);
       if (credentials) {
         return credentials;
       }
     }
-    
+
     // Priority: 1. Client-provided credentials, 2. Headers, 3. Environment fallback
     return {
       username: params.workflowy_username || headers?.get('X-Workflowy-Username') || env.WORKFLOWY_USERNAME,
@@ -202,13 +219,13 @@ class WorkflowyMCPServer {
   }
 
   private createEnvHandler(fastmcpHandler: Function) {
-    return async (params: any, env: any, headers?: Headers) => {
-      // Extract credentials from params, headers, or environment
-      const credentials = this.extractCredentials(params, env, headers);
-      
+    return async (params: any, env: any, headers?: Headers, authorizationToken?: string) => {
+      // Extract credentials from params, headers, authorization token, or environment
+      const credentials = await this.extractCredentials(params, env, headers, authorizationToken);
+
       // Remove credentials from params to avoid passing to Workflowy API
-      const { workflowy_username, workflowy_password, ...toolParams } = params;
-      
+      const { workflowy_username, workflowy_password, authorization_token, ...toolParams } = params;
+
       // Merge tool params with credentials for FastMCP handler
       const fastmcpParams = { ...toolParams, ...credentials };
       // FastMCP handlers expect (params, client) signature
@@ -254,7 +271,7 @@ class WorkflowyMCPServer {
         case "tools/call":
           const { name: toolName, arguments: toolArgs } = request.params;
           const tool = this.tools[toolName];
-          
+
           if (!tool) {
             requestLogger.error(`Unknown tool requested: ${toolName}`);
             return {
@@ -267,17 +284,20 @@ class WorkflowyMCPServer {
             };
           }
 
+          // Extract authorization_token from request params (Claude MCP connector support)
+          const authorizationToken = request.params?.authorization_token;
+
           // Validate and execute tool with caching and deduplication
           const validatedParams = tool.inputSchema.parse(toolArgs);
-          
+
           const startTime = Date.now();
           let cached = false;
           let result;
-          
+
           try {
             // Extract credentials for cache/deduplication key
-            const credentials = this.extractCredentials(validatedParams, env, headers);
-            
+            const credentials = await this.extractCredentials(validatedParams, env, headers, authorizationToken);
+
             // Try cache first if caching is enabled for this tool
             if (workerCache.shouldCache(toolName, validatedParams)) {
               const cachedResult = await workerCache.get(toolName, validatedParams, credentials);
@@ -287,7 +307,7 @@ class WorkflowyMCPServer {
                 requestLogger.cache('hit', `${toolName}:${JSON.stringify(validatedParams).substring(0, 50)}`);
               }
             }
-            
+
             // If not cached, execute with deduplication
             if (result === undefined) {
               result = await requestDeduplicator.execute(
@@ -295,15 +315,15 @@ class WorkflowyMCPServer {
                 validatedParams,
                 credentials,
                 async () => {
-                  const toolResult = await tool.handler(validatedParams, env, headers);
-                  
+                  const toolResult = await tool.handler(validatedParams, env, headers, authorizationToken);
+
                   // Cache the result if caching is enabled
                   if (workerCache.shouldCache(toolName, validatedParams)) {
                     const cacheConfig = workerCache.getCacheConfig(toolName, validatedParams);
                     await workerCache.set(toolName, validatedParams, toolResult, cacheConfig, credentials);
                     requestLogger.cache('set', `${toolName}:${JSON.stringify(validatedParams).substring(0, 50)}`);
                   }
-                  
+
                   return toolResult;
                 }
               );
