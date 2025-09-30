@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.7...v2.1.0) (2025-09-30)
+
+
+### Features
+
+* Add file-based caching and fix 429 rate limiting ([134d90d](https://github.com/dseeker/mcp-workflowy-remote/commit/134d90df50c7ec5eb77c095777410318f0c5ef7f))
+
 ## [2.0.7](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.6...v2.0.7) (2025-09-26)
 
 
