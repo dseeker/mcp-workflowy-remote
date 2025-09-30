@@ -2,6 +2,13 @@ import { WorkFlowy, Client } from 'workflowy';
 import log from '../utils/logger.js';
 import { retryManager, RetryPresets } from '../utils/retry.js';
 import { createLogger } from '../utils/structured-logger.js';
+import { fileCache } from '../utils/file-cache.js';
+
+// Caching options interface
+export interface CacheOptions {
+  forceRefresh?: boolean; // Skip cache and force fresh data
+  cacheOnly?: boolean;    // Only return cached data, don't make API calls
+}
 
 // Enhanced error types for better error handling
 export class WorkflowyError extends Error {
@@ -115,8 +122,10 @@ class WorkflowyClient {
                     throw new NetworkError(`Network error during authentication: ${error.message}`, error);
                 }
                 
-                // Rate limiting or server overload
-                if (error.status === 429 || error.status === 503) {
+                // Rate limiting or server overload - check both status field and message content
+                if (error.status === 429 || error.status === 503 ||
+                    error.message?.includes('429') || error.message?.includes('Too Many Requests') ||
+                    error.message?.includes('Rate limit') || error.message?.includes('rate limit')) {
                     throw new OverloadError(`Workflowy server overloaded: ${error.message}`);
                 }
                 
@@ -814,9 +823,11 @@ class WorkflowyClient {
             return new NetworkError(`Network error in ${operation}: ${error.message}`, error);
         }
 
-        // Server overload errors
-        if (error.status === 429 || error.status === 503 || 
-            error.message?.includes('rate limit') || error.message?.includes('overload')) {
+        // Server overload errors - enhanced 429 detection
+        if (error.status === 429 || error.status === 503 ||
+            error.message?.includes('429') || error.message?.includes('Too Many Requests') ||
+            error.message?.includes('rate limit') || error.message?.includes('Rate limit') ||
+            error.message?.includes('overload')) {
             return new OverloadError(`Service overloaded during ${operation}: ${error.message}`);
         }
 
