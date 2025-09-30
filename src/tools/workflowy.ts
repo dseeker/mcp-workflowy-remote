@@ -166,7 +166,7 @@ export const workflowyTools: Record<string, any> = {
       description: z.string().optional().describe("New description/note for the node")
     },
     annotations: {
-        title: "Search nodes in Workflowy",
+        title: "Update an existing node in Workflowy",
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: true,
