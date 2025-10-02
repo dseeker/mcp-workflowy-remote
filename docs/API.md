@@ -9,11 +9,13 @@ This MCP server provides the following tools to interact with your Workflowy:
 1. **list_nodes** - Get a list of nodes from your Workflowy (root nodes or children of a specified node) with filtering and preview options
 2. **search_nodes** - Search for nodes by query text with advanced filtering and preview options
 3. **create_node** - Create a new node in your Workflowy
-4. **update_node** - Modify an existing node's text or description
-5. **toggle_complete** - Mark a node as complete or incomplete
-6. **delete_node** - Delete a node from your Workflowy
-7. **move_node** - Move a node to a different parent with optional priority control
-8. **get_node_by_id** - Get a single node by its ID with full details and filtering options
+4. **batch_create_nodes** - Create multiple nodes under the same parent in a single atomic operation
+5. **update_node** - Modify an existing node's text or note
+6. **batch_update_nodes** - Update multiple nodes in a single atomic operation
+7. **toggle_complete** - Mark a node as complete or incomplete
+8. **delete_node** - Delete a node from your Workflowy
+9. **move_node** - Move a node to a different parent with optional priority control
+10. **get_node_by_id** - Get a single node by its ID with full details and filtering options
 
 ## Enhanced List & Search Features
 
@@ -239,7 +241,7 @@ Metadata fields enable powerful workflows:
 
 **Parameters:**
 - `parentId` (optional): Parent node ID
-- `maxDepth` (optional): Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)
+- `maxDepth` (optional): How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)
 - `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: id, name)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
 
@@ -248,47 +250,107 @@ Metadata fields enable powerful workflows:
 **Parameters:**
 - `query` (required): Search query
 - `limit` (optional): Maximum number of results to return
-- `maxDepth` (optional): Maximum depth of children to include (default: 0)
+- `maxDepth` (optional): How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)
 - `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
 
 ### 3. create_node - Create new node
 
 **Parameters:**
-- `parentId` (required): Parent node ID
-- `name` (required): Node title
-- `description` (optional): Node content
+- `parentId` (required): Parent node ID where the node will be created
+- `name` (required): Main node text (use for primary information)
+- `note` (optional): Additional details (use for context, notes, or supplementary info)
 
-### 4. update_node - Update existing node
-
-**Parameters:**
-- `nodeId` (required): Node ID to update
-- `name` (optional): New title
-- `description` (optional): New content
-
-### 5. toggle_complete - Toggle completion status
+### 4. batch_create_nodes - Create multiple nodes atomically
 
 **Parameters:**
-- `nodeId` (required): Node ID
-- `completed` (required): "true" or "false"
+- `parentId` (required): Parent node ID where all nodes will be created
+- `nodes` (required): Array of nodes to create, each with:
+  - `name` (required): Main node text (use for primary information)
+  - `note` (optional): Additional details (use for context, notes, or supplementary info)
 
-### 6. delete_node - Delete a node
+**Example:**
+```javascript
+batch_create_nodes({
+  parentId: "node-123",
+  nodes: [
+    { name: "Task 1", note: "First task details" },
+    { name: "Task 2", note: "Second task details" },
+    { name: "Task 3" }
+  ]
+})
+```
+
+**Benefits:**
+- Single API call for multiple creates
+- Atomic operation - all nodes created or none
+- Efficient for bulk operations
+
+### 5. update_node - Update existing node
 
 **Parameters:**
-- `nodeId` (required): Node ID to delete
+- `id` (required): Node ID to update
+- `name` (optional): Main node text (use for primary information)
+- `note` (optional): Additional details (use for context, notes, or supplementary info)
 
-### 7. move_node - Move a node to different parent with priority control
+### 6. batch_update_nodes - Update multiple nodes atomically
 
 **Parameters:**
-- `nodeId` (required): Node ID to move
+- `nodes` (required): Array of nodes to update, each with:
+  - `id` (required): Node ID to update
+  - `name` (optional): Main node text (use for primary information)
+  - `note` (optional): Additional details (use for context, notes, or supplementary info)
+  - `isCompleted` (optional): Completion status (true = completed, false = active)
+
+**Example:**
+```javascript
+batch_update_nodes({
+  nodes: [
+    { id: "node-1", name: "Updated Title 1" },
+    { id: "node-2", note: "Updated note content" },
+    { id: "node-3", name: "New Title", note: "New note" },
+    { id: "node-4", isCompleted: true },
+    { id: "node-5", name: "Completed Task", isCompleted: true }
+  ]
+})
+```
+
+**Benefits:**
+- Single API call for multiple updates
+- Atomic operation - all nodes updated in one save
+- Efficient for bulk edits
+- Supports all writable fields: name, note, isCompleted
+- Partial success handling - reports which nodes were not found
+
+**Response:**
+- `nodesUpdated`: Count of successfully updated nodes
+- `nodes`: Array of updated nodes with their IDs
+- `notFound`: Array of node IDs that were not found (if any)
+- `timing`: Operation execution time
+
+### 7. toggle_complete - Toggle completion status
+
+**Parameters:**
+- `id` (required): Node ID to toggle completion
+- `completed` (required): Completion status (true = mark completed, false = mark active)
+
+### 8. delete_node - Delete a node
+
+**Parameters:**
+- `id` (required): Node ID to delete
+
+### 9. move_node - Move a node to different parent with priority control
+
+**Parameters:**
+- `id` (required): Node ID to move
 - `newParentId` (required): New parent node ID
-- `priority` (optional): Priority/position within the new parent (0 = first position)
+- `priority` (optional): Position within parent siblings (0 = first, omit for last)
 
-### 8. get_node_by_id - Get single node by ID with full details and filtering
+### 10. get_node_by_id - Get single node by ID with full details and filtering
 
 **Parameters:**
-- `nodeId` (required): Node ID to retrieve
-- `maxDepth` (optional): Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)
+- `id` (required): Node ID to retrieve
+- `maxDepth` (optional): How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)
 - `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
 

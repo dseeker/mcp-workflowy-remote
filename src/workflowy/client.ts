@@ -464,11 +464,11 @@ class WorkflowyClient {
     /**
      * Create a new node at a specific location with retry logic
      */
-    async createNode(parentId: string, name: string, description?: string, username?: string, password?: string) {
+    async createNode(parentId: string, name: string, note?: string, username?: string, password?: string) {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             const { wf } = await this.createAuthenticatedClient(username, password);
-            
+
             try {
                 const doc = await wf.getDocument();
                 const parent = this.findNodeById(doc.root.items, parentId);
@@ -479,27 +479,27 @@ class WorkflowyClient {
 
                 const newNode = await parent.createItem();
                 newNode.setName(name);
-                if (description) {
-                    newNode.setNote(description);
+                if (note) {
+                    newNode.setNote(note);
                 }
-                
+
                 if (doc.isDirty()) {
                     await doc.save();
                 }
-                
+
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('createNode', duration, true, {
                     parentId,
                     name: name.substring(0, 50) + (name.length > 50 ? '...' : ''),
-                    hasDescription: !!description
+                    hasNote: !!note
                 });
-                
+
                 return newNode.id; // Return the new node ID
             } catch (error: any) {
                 const duration = Date.now() - startTime;
-                this.structuredLogger.workflowyApi('createNode', duration, false, { 
+                this.structuredLogger.workflowyApi('createNode', duration, false, {
                     parentId,
-                    error: error.message 
+                    error: error.message
                 });
                 throw this.enhanceError(error, 'createNode');
             }
@@ -509,42 +509,42 @@ class WorkflowyClient {
     /**
      * Update an existing node with retry logic
      */
-    async updateNode(nodeId: string, name?: string, description?: string, username?: string, password?: string) {
+    async updateNode(id: string, name?: string, note?: string, username?: string, password?: string) {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             const { wf } = await this.createAuthenticatedClient(username, password);
-            
+
             try {
                 const doc = await wf.getDocument();
-                const node = this.findNodeById(doc.root.items, nodeId);
-                
+                const node = this.findNodeById(doc.root.items, id);
+
                 if (!node) {
-                    throw new NotFoundError(`Node with ID ${nodeId} not found.`, nodeId);
+                    throw new NotFoundError(`Node with ID ${id} not found.`, id);
                 }
 
                 if (name !== undefined) {
                     node.setName(name);
                 }
-                if (description !== undefined) {
-                    node.setNote(description);
+                if (note !== undefined) {
+                    node.setNote(note);
                 }
-                
+
                 if (doc.isDirty()) {
                     await doc.save();
                 }
-                
+
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('updateNode', duration, true, {
-                    nodeId,
+                    nodeId: id,
                     hasNameUpdate: name !== undefined,
-                    hasDescriptionUpdate: description !== undefined
+                    hasNoteUpdate: note !== undefined
                 });
-                
+
             } catch (error: any) {
                 const duration = Date.now() - startTime;
-                this.structuredLogger.workflowyApi('updateNode', duration, false, { 
-                    nodeId,
-                    error: error.message 
+                this.structuredLogger.workflowyApi('updateNode', duration, false, {
+                    nodeId: id,
+                    error: error.message
                 });
                 throw this.enhanceError(error, 'updateNode');
             }
@@ -554,33 +554,33 @@ class WorkflowyClient {
     /**
      * Delete a node with retry logic
      */
-    async deleteNode(nodeId: string, username?: string, password?: string) {
+    async deleteNode(id: string, username?: string, password?: string) {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             const { wf } = await this.createAuthenticatedClient(username, password);
-            
+
             try {
                 const doc = await wf.getDocument();
-                const node = this.findNodeById(doc.root.items, nodeId);
-                
+                const node = this.findNodeById(doc.root.items, id);
+
                 if (!node) {
-                    throw new NotFoundError(`Node with ID ${nodeId} not found.`, nodeId);
+                    throw new NotFoundError(`Node with ID ${id} not found.`, id);
                 }
 
                 await node.delete();
-                
+
                 if (doc.isDirty()) {
                     await doc.save();
                 }
-                
+
                 const duration = Date.now() - startTime;
-                this.structuredLogger.workflowyApi('deleteNode', duration, true, { nodeId });
-                
+                this.structuredLogger.workflowyApi('deleteNode', duration, true, { nodeId: id });
+
             } catch (error: any) {
                 const duration = Date.now() - startTime;
-                this.structuredLogger.workflowyApi('deleteNode', duration, false, { 
-                    nodeId,
-                    error: error.message 
+                this.structuredLogger.workflowyApi('deleteNode', duration, false, {
+                    nodeId: id,
+                    error: error.message
                 });
                 throw this.enhanceError(error, 'deleteNode');
             }
@@ -590,17 +590,17 @@ class WorkflowyClient {
     /**
      * Complete/uncomplete a node with retry logic
      */
-    async toggleComplete(nodeId: string, completed: boolean, username?: string, password?: string) {
+    async toggleComplete(id: string, completed: boolean, username?: string, password?: string) {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             const { wf } = await this.createAuthenticatedClient(username, password);
 
             try {
                 const doc = await wf.getDocument();
-                const node = this.findNodeById(doc.root.items, nodeId);
+                const node = this.findNodeById(doc.root.items, id);
 
                 if (!node) {
-                    throw new NotFoundError(`Node with ID ${nodeId} not found.`, nodeId);
+                    throw new NotFoundError(`Node with ID ${id} not found.`, id);
                 }
 
                 if (completed) {
@@ -615,13 +615,13 @@ class WorkflowyClient {
 
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('toggleComplete', duration, true, {
-                    nodeId,
+                    nodeId: id,
                     completed
                 });
             } catch (error: any) {
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('toggleComplete', duration, false, {
-                    nodeId,
+                    nodeId: id,
                     completed,
                     error: error.message
                 });
@@ -633,7 +633,7 @@ class WorkflowyClient {
     /**
      * Move a node to a different parent with optional priority with retry logic
      */
-    async moveNode(nodeId: string, newParentId: string, priority?: number, username?: string, password?: string) {
+    async moveNode(id: string, newParentId: string, priority?: number, username?: string, password?: string) {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             const { wf } = await this.createAuthenticatedClient(username, password);
@@ -642,9 +642,9 @@ class WorkflowyClient {
                 const doc = await wf.getDocument();
 
                 // Find the node to move
-                const node = this.findNodeById(doc.root.items, nodeId);
+                const node = this.findNodeById(doc.root.items, id);
                 if (!node) {
-                    throw new NotFoundError(`Node with ID ${nodeId} not found.`, nodeId);
+                    throw new NotFoundError(`Node with ID ${id} not found.`, id);
                 }
 
                 // Find the new parent
@@ -662,14 +662,14 @@ class WorkflowyClient {
 
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('moveNode', duration, true, {
-                    nodeId,
+                    nodeId: id,
                     newParentId,
                     priority
                 });
             } catch (error: any) {
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('moveNode', duration, false, {
-                    nodeId,
+                    nodeId: id,
                     newParentId,
                     priority,
                     error: error.message
@@ -682,7 +682,7 @@ class WorkflowyClient {
     /**
      * Create multiple nodes under the same parent in a single atomic operation
      */
-    async batchCreateNodes(parentId: string, nodes: Array<{name: string, description?: string}>, username?: string, password?: string) {
+    async batchCreateNodes(parentId: string, nodes: Array<{name: string, note?: string}>, username?: string, password?: string) {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             const { wf } = await this.createAuthenticatedClient(username, password);
@@ -700,13 +700,13 @@ class WorkflowyClient {
                 for (const nodeData of nodes) {
                     const newNode = await parent.createItem();
                     newNode.setName(nodeData.name);
-                    if (nodeData.description) {
-                        newNode.setNote(nodeData.description);
+                    if (nodeData.note) {
+                        newNode.setNote(nodeData.note);
                     }
                     createdNodes.push({
                         id: newNode.id,
                         name: nodeData.name,
-                        description: nodeData.description
+                        note: nodeData.note
                     });
                 }
 
@@ -742,9 +742,79 @@ class WorkflowyClient {
     }
 
     /**
+     * Update multiple nodes in a single atomic operation
+     */
+    async batchUpdateNodes(nodes: Array<{id: string, name?: string, note?: string, isCompleted?: boolean}>, username?: string, password?: string) {
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { wf } = await this.createAuthenticatedClient(username, password);
+
+            try {
+                const doc = await wf.getDocument();
+                const updatedNodes = [];
+                const notFoundNodes = [];
+
+                // Update all nodes in memory (batch operation)
+                for (const { id, name, note, isCompleted } of nodes) {
+                    const node = this.findNodeById(doc.root.items, id);
+
+                    if (!node) {
+                        notFoundNodes.push(id);
+                        continue;
+                    }
+
+                    if (name !== undefined) {
+                        node.setName(name);
+                    }
+                    if (note !== undefined) {
+                        node.setNote(note);
+                    }
+                    if (isCompleted !== undefined) {
+                        node.setCompleted(isCompleted);
+                    }
+
+                    updatedNodes.push({ id, name, note, isCompleted });
+                }
+
+                // If all nodes were not found, throw error
+                if (notFoundNodes.length === nodes.length) {
+                    throw new NotFoundError(`None of the specified nodes were found: ${notFoundNodes.join(', ')}`);
+                }
+
+                // Single save operation for all nodes (atomic)
+                if (doc.isDirty()) {
+                    await doc.save();
+                }
+
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('batchUpdateNodes', duration, true, {
+                    nodeCount: nodes.length,
+                    updatedCount: updatedNodes.length,
+                    notFoundCount: notFoundNodes.length
+                });
+
+                return {
+                    success: true,
+                    nodesUpdated: updatedNodes.length,
+                    nodes: updatedNodes,
+                    notFound: notFoundNodes.length > 0 ? notFoundNodes : undefined,
+                    timing: `${duration}ms`
+                };
+            } catch (error: any) {
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('batchUpdateNodes', duration, false, {
+                    nodeCount: nodes.length,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'batchUpdateNodes');
+            }
+        }, RetryPresets.BATCH);
+    }
+
+    /**
      * Get a single node by its ID with retry logic
      */
-    async getNodeById(nodeId: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
+    async getNodeById(id: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
             const { wf } = await this.createAuthenticatedClient(username, password);
@@ -753,9 +823,9 @@ class WorkflowyClient {
                 const doc = await wf.getDocument();
 
                 // Find the node
-                const node = this.findNodeById(doc.root.items, nodeId);
+                const node = this.findNodeById(doc.root.items, id);
                 if (!node) {
-                    throw new NotFoundError(`Node with ID ${nodeId} not found.`, nodeId);
+                    throw new NotFoundError(`Node with ID ${id} not found.`, id);
                 }
 
                 // Check if metadata fields are requested
@@ -768,7 +838,7 @@ class WorkflowyClient {
 
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('getNodeById', duration, true, {
-                    nodeId,
+                    nodeId: id,
                     maxDepth,
                     includeFields: includeFields?.join(','),
                     previewLength
@@ -778,7 +848,7 @@ class WorkflowyClient {
             } catch (error: any) {
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('getNodeById', duration, false, {
-                    nodeId,
+                    nodeId: id,
                     maxDepth,
                     includeFields: includeFields?.join(','),
                     previewLength,

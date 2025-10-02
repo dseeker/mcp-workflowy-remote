@@ -6,10 +6,10 @@ export const workflowyTools: Record<string, any> = {
   list_nodes: {
     description: "List nodes in Workflowy. If a `parentId` is provided, it lists the child nodes of that parent. If omitted, it lists the root nodes.",
     inputSchema: {
-      parentId: z.string().optional().describe("ID of the parent node to list children from. If omitted, returns root nodes."),
-      maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: id, name)"),
-      preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
+      parentId: z.string().optional().describe("Parent node ID to list children from (omit for root nodes)"),
+      maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include - Basic: id, name, note, isCompleted; Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: id, name)"),
+      preview: z.number().optional().describe("Character limit for name/note fields to truncate long content (omit for full content)")
     },
     handler: async ({ parentId, maxDepth, includeFields, preview, username, password }: { parentId?: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
       try {
@@ -46,11 +46,11 @@ export const workflowyTools: Record<string, any> = {
   search_nodes: {
     description: "Search nodes in Workflowy",
     inputSchema: {
-      query: z.string().describe("Search query to find matching nodes"),
-      limit: z.number().optional().describe("Maximum number of results to return (default: 10)"),
-      maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)"),
-      preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
+      query: z.string().describe("Search text to find matching nodes"),
+      limit: z.number().optional().describe("Maximum results to return (default: 10)"),
+      maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include - Basic: id, name, note, isCompleted; Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic)"),
+      preview: z.number().optional().describe("Character limit for name/note fields to truncate long content (omit for full content)")
     },
     annotations: {
         title: "Search nodes in Workflowy",
@@ -86,9 +86,9 @@ export const workflowyTools: Record<string, any> = {
   create_node: {
     description: "Create a new node",
     inputSchema: {
-      parentId: z.string().describe("ID of the parent node where the new node should be created"),
-      name: z.string().describe("Name/title for the new node"),
-      description: z.string().optional().describe("Description/note for the new node")
+      parentId: z.string().describe("Parent node ID where the node will be created"),
+      name: z.string().describe("Main node text (use for primary information)"),
+      note: z.string().optional().describe("Additional details (use for context, notes, or supplementary info)")
     },
     annotations: {
         title: "Create a new node in Workflowy",
@@ -97,11 +97,11 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: false,
         openWorldHint: false
     },
-    handler: async ({ parentId, name, description, username, password }:
-        { parentId: string, name: string, description?: string, username?: string, password?: string },
+    handler: async ({ parentId, name, note, username, password }:
+        { parentId: string, name: string, note?: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
       try {
-        await workflowyClient.createNode(parentId, name, description, username, password);
+        await workflowyClient.createNode(parentId, name, note, username, password);
         return {
           content: [{
             type: "text",
@@ -122,10 +122,10 @@ export const workflowyTools: Record<string, any> = {
   batch_create_nodes: {
     description: "Create multiple nodes under the same parent in a single atomic operation",
     inputSchema: {
-      parentId: z.string().describe("ID of the parent node where all new nodes should be created"),
+      parentId: z.string().describe("Parent node ID where all nodes will be created"),
       nodes: z.array(z.object({
-        name: z.string().describe("Name/title for the node"),
-        description: z.string().optional().describe("Description/note for the node")
+        name: z.string().describe("Main node text (use for primary information)"),
+        note: z.string().optional().describe("Additional details (use for context, notes, or supplementary info)")
       })).describe("Array of nodes to create")
     },
     annotations: {
@@ -136,7 +136,7 @@ export const workflowyTools: Record<string, any> = {
         openWorldHint: false
     },
     handler: async ({ parentId, nodes, username, password }:
-        { parentId: string, nodes: Array<{name: string, description?: string}>, username?: string, password?: string },
+        { parentId: string, nodes: Array<{name: string, note?: string}>, username?: string, password?: string },
         client: typeof workflowyClient) => {
       try {
         const result = await workflowyClient.batchCreateNodes(parentId, nodes, username, password);
@@ -158,12 +158,55 @@ export const workflowyTools: Record<string, any> = {
     }
   },
 
+  batch_update_nodes: {
+    description: "Update multiple nodes in a single atomic operation",
+    inputSchema: {
+      nodes: z.array(z.object({
+        id: z.string().describe("Node ID to update"),
+        name: z.string().optional().describe("Main node text (use for primary information)"),
+        note: z.string().optional().describe("Additional details (use for context, notes, or supplementary info)"),
+        isCompleted: z.boolean().optional().describe("Completion status (true = completed, false = active)")
+      })).describe("Array of nodes to update")
+    },
+    annotations: {
+        title: "Update multiple nodes in Workflowy atomically",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false
+    },
+    handler: async ({ nodes, username, password }:
+        { nodes: Array<{id: string, name?: string, note?: string, isCompleted?: boolean}>, username?: string, password?: string },
+        client: typeof workflowyClient) => {
+      try {
+        const result = await workflowyClient.batchUpdateNodes(nodes, username, password);
+
+        const successMessage = `Successfully updated ${result.nodesUpdated} nodes in ${result.timing}:\n${result.nodes.map(n => `- ${n.id}${n.name ? ` (name: ${n.name})` : ''}${n.note !== undefined ? ` (note updated)` : ''}${n.isCompleted !== undefined ? ` (completed: ${n.isCompleted})` : ''}`).join('\n')}`;
+        const warningMessage = result.notFound ? `\n\nWarning: ${result.notFound.length} nodes not found: ${result.notFound.join(', ')}` : '';
+
+        return {
+          content: [{
+            type: "text",
+            text: successMessage + warningMessage
+          }]
+        };
+      } catch (error: any) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error updating batch nodes: ${error.message}`
+          }]
+        };
+      };
+    }
+  },
+
   update_node: {
     description: "Update an existing node",
     inputSchema: {
-      nodeId: z.string().describe("ID of the node to update"),
-      name: z.string().optional().describe("New name/title for the node"),
-      description: z.string().optional().describe("New description/note for the node")
+      id: z.string().describe("Node ID to update"),
+      name: z.string().optional().describe("Main node text (use for primary information)"),
+      note: z.string().optional().describe("Additional details (use for context, notes, or supplementary info)")
     },
     annotations: {
         title: "Update an existing node in Workflowy",
@@ -172,15 +215,15 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: true,
         openWorldHint: false
     },
-    handler: async ({ nodeId, name, description, username, password }:
-        { nodeId: string, name?: string, description?: string, username?: string, password?: string },
+    handler: async ({ id, name, note, username, password }:
+        { id: string, name?: string, note?: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
       try {
-        await workflowyClient.updateNode(nodeId, name, description, username, password);
+        await workflowyClient.updateNode(id, name, note, username, password);
         return {
           content: [{
             type: "text",
-            text: `Successfully updated node ${nodeId}`
+            text: `Successfully updated node ${id}`
           }]
         };
       } catch (error: any) {
@@ -197,7 +240,7 @@ export const workflowyTools: Record<string, any> = {
   delete_node: {
     description: "Delete a node",
     inputSchema: {
-      nodeId: z.string().describe("ID of the node to delete")
+      id: z.string().describe("Node ID to delete")
     },
     annotations: {
         title: "Delete a node in Workflowy",
@@ -206,15 +249,15 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: false,
         openWorldHint: false
     },
-    handler: async ({ nodeId, username, password }:
-        { nodeId: string, username?: string, password?: string },
+    handler: async ({ id, username, password }:
+        { id: string, username?: string, password?: string },
         client: typeof workflowyClient) => {
       try {
-        await workflowyClient.deleteNode(nodeId, username, password);
+        await workflowyClient.deleteNode(id, username, password);
         return {
           content: [{
             type: "text",
-            text: `Successfully deleted node ${nodeId}`
+            text: `Successfully deleted node ${id}`
           }]
         };
       } catch (error: any) {
@@ -231,8 +274,8 @@ export const workflowyTools: Record<string, any> = {
   toggle_complete: {
     description: "Toggle completion status of a node",
     inputSchema: {
-      nodeId: z.string().describe("ID of the node to toggle completion status"),
-      completed: z.boolean().describe("Whether the node should be marked as complete (true) or incomplete (false)")
+      id: z.string().describe("Node ID to toggle completion"),
+      completed: z.boolean().describe("Completion status (true = mark completed, false = mark active)")
     },
     annotations: {
         title: "Toggle completion status of a node",
@@ -241,15 +284,15 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: true,
         openWorldHint: false
     },
-    handler: async ({ nodeId, completed, username, password }:
-        { nodeId: string, completed: boolean, username?: string, password?: string },
+    handler: async ({ id, completed, username, password }:
+        { id: string, completed: boolean, username?: string, password?: string },
         client: typeof workflowyClient) => {
       try {
-        await workflowyClient.toggleComplete(nodeId, completed, username, password);
+        await workflowyClient.toggleComplete(id, completed, username, password);
         return {
           content: [{
             type: "text",
-            text: `Successfully ${completed ? "completed" : "uncompleted"} node ${nodeId}`
+            text: `Successfully ${completed ? "completed" : "uncompleted"} node ${id}`
           }]
         };
       } catch (error: any) {
@@ -266,9 +309,9 @@ export const workflowyTools: Record<string, any> = {
   move_node: {
     description: "Move a node to a different parent with optional priority control",
     inputSchema: {
-      nodeId: z.string().describe("ID of the node to move"),
-      newParentId: z.string().describe("ID of the new parent node"),
-      priority: z.number().optional().describe("Priority/position within the new parent (0 = first position)")
+      id: z.string().describe("Node ID to move"),
+      newParentId: z.string().describe("New parent node ID"),
+      priority: z.number().optional().describe("Position within parent siblings (0 = first, omit for last)")
     },
     annotations: {
         title: "Move a node to different parent",
@@ -277,16 +320,16 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: false,
         openWorldHint: false
     },
-    handler: async ({ nodeId, newParentId, priority, username, password }:
-        { nodeId: string, newParentId: string, priority?: number, username?: string, password?: string },
+    handler: async ({ id, newParentId, priority, username, password }:
+        { id: string, newParentId: string, priority?: number, username?: string, password?: string },
         client: typeof workflowyClient) => {
       try {
-        await workflowyClient.moveNode(nodeId, newParentId, priority, username, password);
+        await workflowyClient.moveNode(id, newParentId, priority, username, password);
         const priorityText = priority !== undefined ? ` at position ${priority}` : '';
         return {
           content: [{
             type: "text",
-            text: `Successfully moved node ${nodeId} to parent ${newParentId}${priorityText}`
+            text: `Successfully moved node ${id} to parent ${newParentId}${priorityText}`
           }]
         };
       } catch (error: any) {
@@ -303,10 +346,10 @@ export const workflowyTools: Record<string, any> = {
   get_node_by_id: {
     description: "Get a single node by its ID with full details",
     inputSchema: {
-      nodeId: z.string().describe("ID of the node to retrieve"),
-      maxDepth: z.number().optional().describe("Maximum depth of children to include (0=no children, 1=first level, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)"),
-      preview: z.number().optional().describe("Truncate content fields (name, note) to specified number of characters. If omitted, full content is returned.")
+      id: z.string().describe("Node ID to retrieve"),
+      maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include - Basic: id, name, note, isCompleted; Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic)"),
+      preview: z.number().optional().describe("Character limit for name/note fields to truncate long content (omit for full content)")
     },
     annotations: {
         title: "Get node by ID",
@@ -315,11 +358,11 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: true,
         openWorldHint: false
     },
-    handler: async ({ nodeId, maxDepth, includeFields, preview, username, password }:
-        { nodeId: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string },
+    handler: async ({ id, maxDepth, includeFields, preview, username, password }:
+        { id: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string },
         client: typeof workflowyClient) => {
       try {
-        const node = await workflowyClient.getNodeById(nodeId, username, password, maxDepth, includeFields, preview);
+        const node = await workflowyClient.getNodeById(id, username, password, maxDepth, includeFields, preview);
         return {
           content: [{
             type: "text",
