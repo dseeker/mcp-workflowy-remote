@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.1.0...v2.2.0) (2025-10-02)
+
+
+### Features
+
+* add isCompleted support to batch_update_nodes and improve parameter descriptions ([79f584a](https://github.com/dseeker/mcp-workflowy-remote/commit/79f584a02db2a7209ebec45743912e461baa006f))
+
 # [2.1.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.0.7...v2.1.0) (2025-09-30)
 
 
