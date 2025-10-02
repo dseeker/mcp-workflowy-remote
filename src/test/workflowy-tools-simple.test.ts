@@ -53,10 +53,10 @@ const createTestTools = (mockClient: any) => {
     },
 
     create_node: {
-      handler: async ({ parentId, name, description, username, password }: 
-        { parentId: string, name: string, description?: string, username?: string, password?: string }) => {
+      handler: async ({ parentId, name, note, username, password }:
+        { parentId: string, name: string, note?: string, username?: string, password?: string }) => {
         try {
-          await mockClient.createNode(parentId, name, description, username, password);
+          await mockClient.createNode(parentId, name, note, username, password);
           return {
             content: [{
               type: "text",
@@ -74,15 +74,37 @@ const createTestTools = (mockClient: any) => {
       }
     },
 
-    update_node: {
-      handler: async ({ nodeId, name, description, username, password }: 
-        { nodeId: string, name?: string, description?: string, username?: string, password?: string }) => {
+    batch_create_nodes: {
+      handler: async ({ parentId, nodes, username, password }:
+        { parentId: string, nodes: Array<{name: string, note?: string}>, username?: string, password?: string }) => {
         try {
-          await mockClient.updateNode(nodeId, name, description, username, password);
+          const result = await mockClient.batchCreateNodes(parentId, nodes, username, password);
           return {
             content: [{
               type: "text",
-              text: `Successfully updated node ${nodeId}`
+              text: `Successfully created ${result.nodesCreated} nodes under parent ${parentId} in ${result.timing}:\n${result.nodes.map((n: any) => `- ${n.name} (${n.id})`).join('\n')}`
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error creating batch nodes: ${error.message}`
+            }]
+          };
+        }
+      }
+    },
+
+    update_node: {
+      handler: async ({ id, name, note, username, password }:
+        { id: string, name?: string, note?: string, username?: string, password?: string }) => {
+        try {
+          await mockClient.updateNode(id, name, note, username, password);
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully updated node ${id}`
             }]
           };
         } catch (error: any) {
@@ -96,15 +118,39 @@ const createTestTools = (mockClient: any) => {
       }
     },
 
-    toggle_complete: {
-      handler: async ({ nodeId, completed, username, password }: 
-        { nodeId: string, completed: boolean, username?: string, password?: string }) => {
+    batch_update_nodes: {
+      handler: async ({ nodes, username, password }:
+        { nodes: Array<{id: string, name?: string, note?: string, isCompleted?: boolean}>, username?: string, password?: string }) => {
         try {
-          await mockClient.toggleComplete(nodeId, completed, username, password);
+          const result = await mockClient.batchUpdateNodes(nodes, username, password);
+          const successMessage = `Successfully updated ${result.nodesUpdated} nodes in ${result.timing}:\n${result.nodes.map((n: any) => `- ${n.id}${n.name ? ` (name: ${n.name})` : ''}${n.note !== undefined ? ` (note updated)` : ''}${n.isCompleted !== undefined ? ` (completed: ${n.isCompleted})` : ''}`).join('\n')}`;
+          const warningMessage = result.notFound ? `\n\nWarning: ${result.notFound.length} nodes not found: ${result.notFound.join(', ')}` : '';
           return {
             content: [{
               type: "text",
-              text: `Successfully ${completed ? "completed" : "uncompleted"} node ${nodeId}`
+              text: successMessage + warningMessage
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error updating batch nodes: ${error.message}`
+            }]
+          };
+        }
+      }
+    },
+
+    toggle_complete: {
+      handler: async ({ id, completed, username, password }:
+        { id: string, completed: boolean, username?: string, password?: string }) => {
+        try {
+          await mockClient.toggleComplete(id, completed, username, password);
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully ${completed ? "completed" : "uncompleted"} node ${id}`
             }]
           };
         } catch (error: any) {
@@ -119,14 +165,14 @@ const createTestTools = (mockClient: any) => {
     },
 
     delete_node: {
-      handler: async ({ nodeId, username, password }: 
-        { nodeId: string, username?: string, password?: string }) => {
+      handler: async ({ id, username, password }:
+        { id: string, username?: string, password?: string }) => {
         try {
-          await mockClient.deleteNode(nodeId, username, password);
+          await mockClient.deleteNode(id, username, password);
           return {
             content: [{
               type: "text",
-              text: `Successfully deleted node ${nodeId}`
+              text: `Successfully deleted node ${id}`
             }]
           };
         } catch (error: any) {
@@ -141,15 +187,15 @@ const createTestTools = (mockClient: any) => {
     },
 
     move_node: {
-      handler: async ({ nodeId, newParentId, priority, username, password }: 
-        { nodeId: string, newParentId: string, priority?: number, username?: string, password?: string }) => {
+      handler: async ({ id, newParentId, priority, username, password }:
+        { id: string, newParentId: string, priority?: number, username?: string, password?: string }) => {
         try {
-          await mockClient.moveNode(nodeId, newParentId, priority, username, password);
+          await mockClient.moveNode(id, newParentId, priority, username, password);
           const priorityText = priority !== undefined ? ` at position ${priority}` : '';
           return {
             content: [{
               type: "text",
-              text: `Successfully moved node ${nodeId} to parent ${newParentId}${priorityText}`
+              text: `Successfully moved node ${id} to parent ${newParentId}${priorityText}`
             }]
           };
         } catch (error: any) {
@@ -164,10 +210,10 @@ const createTestTools = (mockClient: any) => {
     },
 
     get_node_by_id: {
-      handler: async ({ nodeId, maxDepth, includeFields, preview, username, password }: 
-        { nodeId: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
+      handler: async ({ id, maxDepth, includeFields, preview, username, password }:
+        { id: string, maxDepth?: number, includeFields?: string[], preview?: number, username?: string, password?: string }) => {
         try {
-          const node = await mockClient.getNodeById(nodeId, username, password, maxDepth, includeFields, preview);
+          const node = await mockClient.getNodeById(id, username, password, maxDepth, includeFields, preview);
           return {
             content: [{
               type: "text",
@@ -272,52 +318,97 @@ const createMockClient = (scenario: 'success' | 'error' | 'empty' = 'success') =
       return results.map(result => applyFiltering(result, maxDepth ?? 0, includeFields, preview));
     },
 
-    createNode: async (parentId: string, name: string, description?: string) => {
+    createNode: async (parentId: string, name: string, note?: string) => {
       if (scenario === 'error') throw new Error("Authentication failed: Invalid credentials");
-      return { success: true, nodeId: "new-node-123" };
+      return { success: true, id: "new-node-123" };
     },
 
-    updateNode: async (nodeId: string, name?: string, description?: string) => {
+    batchCreateNodes: async (parentId: string, nodes: Array<{name: string, note?: string}>) => {
+      if (scenario === 'error') throw new Error("Authentication failed: Invalid credentials");
+      const createdNodes = nodes.map((node, index) => ({
+        id: `batch-node-${index + 1}`,
+        name: node.name,
+        note: node.note
+      }));
+      return {
+        success: true,
+        nodesCreated: nodes.length,
+        nodes: createdNodes,
+        parentId,
+        timing: "15ms"
+      };
+    },
+
+    updateNode: async (id: string, name?: string, note?: string) => {
       if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
-      return { success: true, nodeId };
+      return { success: true, id };
     },
 
-    toggleComplete: async (nodeId: string, completed: boolean) => {
+    batchUpdateNodes: async (nodes: Array<{id: string, name?: string, note?: string, isCompleted?: boolean}>) => {
+      if (scenario === 'error') throw new Error("Authentication failed: Invalid credentials");
+
+      // Simulate some nodes not found in 'empty' scenario
+      if (scenario === 'empty') {
+        return {
+          success: true,
+          nodesUpdated: 0,
+          nodes: [],
+          notFound: nodes.map(n => n.id),
+          timing: "10ms"
+        };
+      }
+
+      const updatedNodes = nodes.map(({ id, name, note, isCompleted }) => {
+        const result: any = { id };
+        if (name !== undefined) result.name = name;
+        if (note !== undefined) result.note = note;
+        if (isCompleted !== undefined) result.isCompleted = isCompleted;
+        return result;
+      });
+      return {
+        success: true,
+        nodesUpdated: nodes.length,
+        nodes: updatedNodes,
+        timing: "20ms"
+      };
+    },
+
+    toggleComplete: async (id: string, completed: boolean) => {
       if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
-      return { success: true, nodeId, completed };
+      return { success: true, id, completed };
     },
 
-    deleteNode: async (nodeId: string, username?: string, password?: string) => {
+    deleteNode: async (id: string, username?: string, password?: string) => {
       if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
-      return { success: true, nodeId };
+      return { success: true, id };
     },
 
-    moveNode: async (nodeId: string, newParentId: string, priority?: number, username?: string, password?: string) => {
+    moveNode: async (id: string, newParentId: string, priority?: number, username?: string, password?: string) => {
       if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
-      return { success: true, nodeId, newParentId, priority };
+      return { success: true, id, newParentId, priority };
     },
 
-    getNodeById: async (nodeId: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], preview?: number) => {
+    getNodeById: async (id: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], preview?: number) => {
       if (scenario === 'error') throw new Error("Node not found: Invalid node ID");
       if (scenario === 'empty') return null;
-      
-      // Return a specific node from mock data based on nodeId
+
+      // Return a specific node from mock data based on id
       const mockNode = {
-        id: nodeId,
-        name: `Node ${nodeId}`,
-        note: `This is a note for node ${nodeId}`,
+        id,
+        name: `Node ${id}`,
+        note: `This is a note for node ${id}`,
         isCompleted: false,
         items: [
           {
-            id: `${nodeId}-child-1`,
-            name: `Child 1 of ${nodeId}`,
+            id: `${id}-child-1`,
+            name: `Child 1 of ${id}`,
             note: "Child note",
             isCompleted: true,
             items: []
           },
           {
-            id: `${nodeId}-child-2`, 
-            name: `Child 2 of ${nodeId}`,
+            id: `${id}-child-2`, 
+            name: `Child 2 of ${id}`,
             note: "Another child note",
             isCompleted: false,
             items: []
@@ -840,7 +931,7 @@ describe('Workflowy MCP Tools', () => {
       const result = await tools.create_node.handler({
         parentId: 'root-node-1',
         name: 'New Task',
-        description: 'Task description',
+        note: 'Task note',
         ...testCredentials
       });
 
@@ -848,7 +939,7 @@ describe('Workflowy MCP Tools', () => {
       expect(result.content[0].text).toContain('root-node-1');
     });
 
-    it('should create a node without description', async () => {
+    it('should create a node without note', async () => {
       const result = await tools.create_node.handler({
         parentId: 'root-node-1',
         name: 'Simple Task',
@@ -861,7 +952,7 @@ describe('Workflowy MCP Tools', () => {
     it('should handle creation errors', async () => {
       const errorClient = createMockClient('error');
       const errorTools = createTestTools(errorClient);
-      
+
       const result = await errorTools.create_node.handler({
         parentId: 'invalid-parent',
         name: 'New Task',
@@ -873,12 +964,64 @@ describe('Workflowy MCP Tools', () => {
     });
   });
 
+  describe('batch_create_nodes', () => {
+    it('should create multiple nodes successfully', async () => {
+      const result = await tools.batch_create_nodes.handler({
+        parentId: 'root-node-1',
+        nodes: [
+          { name: 'Task 1', note: 'First task' },
+          { name: 'Task 2', note: 'Second task' },
+          { name: 'Task 3' }
+        ],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully created 3 nodes');
+      expect(result.content[0].text).toContain('root-node-1');
+      expect(result.content[0].text).toContain('Task 1');
+      expect(result.content[0].text).toContain('Task 2');
+      expect(result.content[0].text).toContain('Task 3');
+      expect(result.content[0].text).toContain('batch-node-1');
+      expect(result.content[0].text).toContain('15ms');
+    });
+
+    it('should create single node in batch', async () => {
+      const result = await tools.batch_create_nodes.handler({
+        parentId: 'root-node-1',
+        nodes: [
+          { name: 'Single Task', note: 'Only one task' }
+        ],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully created 1 nodes');
+      expect(result.content[0].text).toContain('Single Task');
+    });
+
+    it('should handle batch creation errors', async () => {
+      const errorClient = createMockClient('error');
+      const errorTools = createTestTools(errorClient);
+
+      const result = await errorTools.batch_create_nodes.handler({
+        parentId: 'invalid-parent',
+        nodes: [
+          { name: 'Task 1' },
+          { name: 'Task 2' }
+        ],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Error creating batch nodes');
+      expect(result.content[0].text).toContain('Authentication failed');
+    });
+  });
+
   describe('update_node', () => {
-    it('should update node name and description', async () => {
+    it('should update node name and note', async () => {
       const result = await tools.update_node.handler({
-        nodeId: 'node-123',
+        id: 'node-123',
         name: 'Updated Name',
-        description: 'Updated description',
+        note: 'Updated note',
         ...testCredentials
       });
 
@@ -888,9 +1031,9 @@ describe('Workflowy MCP Tools', () => {
     it('should handle update errors', async () => {
       const errorClient = createMockClient('error');
       const errorTools = createTestTools(errorClient);
-      
+
       const result = await errorTools.update_node.handler({
-        nodeId: 'invalid-node',
+        id: 'invalid-node',
         name: 'Updated Name',
         ...testCredentials
       });
@@ -900,10 +1043,95 @@ describe('Workflowy MCP Tools', () => {
     });
   });
 
+  describe('batch_update_nodes', () => {
+    it('should update multiple nodes successfully', async () => {
+      const result = await tools.batch_update_nodes.handler({
+        nodes: [
+          { id: 'node-1', name: 'Updated Task 1' },
+          { id: 'node-2', note: 'Updated note content' },
+          { id: 'node-3', name: 'Task 3', note: 'New note' }
+        ],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully updated 3 nodes');
+      expect(result.content[0].text).toContain('20ms');
+      expect(result.content[0].text).toContain('node-1');
+      expect(result.content[0].text).toContain('name: Updated Task 1');
+      expect(result.content[0].text).toContain('node-2');
+      expect(result.content[0].text).toContain('note updated');
+      expect(result.content[0].text).toContain('node-3');
+    });
+
+    it('should update nodes with isCompleted field', async () => {
+      const result = await tools.batch_update_nodes.handler({
+        nodes: [
+          { id: 'node-1', name: 'Completed Task', isCompleted: true },
+          { id: 'node-2', isCompleted: false },
+          { id: 'node-3', name: 'Task', note: 'Note', isCompleted: true }
+        ],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully updated 3 nodes');
+      expect(result.content[0].text).toContain('node-1');
+      expect(result.content[0].text).toContain('completed: true');
+      expect(result.content[0].text).toContain('node-2');
+      expect(result.content[0].text).toContain('completed: false');
+      expect(result.content[0].text).toContain('node-3');
+    });
+
+    it('should update single node in batch', async () => {
+      const result = await tools.batch_update_nodes.handler({
+        nodes: [
+          { id: 'node-1', name: 'Single Update' }
+        ],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully updated 1 nodes');
+      expect(result.content[0].text).toContain('node-1');
+    });
+
+    it('should handle partial success with not found nodes', async () => {
+      const emptyClient = createMockClient('empty');
+      const emptyTools = createTestTools(emptyClient);
+
+      const result = await emptyTools.batch_update_nodes.handler({
+        nodes: [
+          { id: 'missing-1', name: 'Task 1' },
+          { id: 'missing-2', name: 'Task 2' }
+        ],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully updated 0 nodes');
+      expect(result.content[0].text).toContain('Warning: 2 nodes not found');
+      expect(result.content[0].text).toContain('missing-1');
+      expect(result.content[0].text).toContain('missing-2');
+    });
+
+    it('should handle batch update errors', async () => {
+      const errorClient = createMockClient('error');
+      const errorTools = createTestTools(errorClient);
+
+      const result = await errorTools.batch_update_nodes.handler({
+        nodes: [
+          { id: 'node-1', name: 'Task 1' },
+          { id: 'node-2', name: 'Task 2' }
+        ],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Error updating batch nodes');
+      expect(result.content[0].text).toContain('Authentication failed');
+    });
+  });
+
   describe('toggle_complete', () => {
     it('should mark node as completed', async () => {
       const result = await tools.toggle_complete.handler({
-        nodeId: 'node-123',
+        id: 'node-123',
         completed: true,
         ...testCredentials
       });
@@ -913,7 +1141,7 @@ describe('Workflowy MCP Tools', () => {
 
     it('should mark node as incomplete', async () => {
       const result = await tools.toggle_complete.handler({
-        nodeId: 'node-123',
+        id: 'node-123',
         completed: false,
         ...testCredentials
       });
@@ -926,7 +1154,7 @@ describe('Workflowy MCP Tools', () => {
       const errorTools = createTestTools(errorClient);
       
       const result = await errorTools.toggle_complete.handler({
-        nodeId: 'invalid-node',
+        id: 'invalid-node',
         completed: true,
         ...testCredentials
       });
@@ -939,7 +1167,7 @@ describe('Workflowy MCP Tools', () => {
   describe('delete_node', () => {
     it('should delete a node successfully', async () => {
       const result = await tools.delete_node.handler({
-        nodeId: 'node-123',
+        id: 'node-123',
         ...testCredentials
       });
 
@@ -951,7 +1179,7 @@ describe('Workflowy MCP Tools', () => {
       const errorTools = createTestTools(errorClient);
       
       const result = await errorTools.delete_node.handler({
-        nodeId: 'invalid-node',
+        id: 'invalid-node',
         ...testCredentials
       });
 
@@ -963,7 +1191,7 @@ describe('Workflowy MCP Tools', () => {
   describe('move_node', () => {
     it('should move a node to a new parent successfully', async () => {
       const result = await tools.move_node.handler({
-        nodeId: 'node-123',
+        id: 'node-123',
         newParentId: 'parent-456',
         ...testCredentials
       });
@@ -973,7 +1201,7 @@ describe('Workflowy MCP Tools', () => {
 
     it('should move a node with priority', async () => {
       const result = await tools.move_node.handler({
-        nodeId: 'node-123',
+        id: 'node-123',
         newParentId: 'parent-456',
         priority: 0,
         ...testCredentials
@@ -987,7 +1215,7 @@ describe('Workflowy MCP Tools', () => {
       const errorTools = createTestTools(errorClient);
       
       const result = await errorTools.move_node.handler({
-        nodeId: 'invalid-node',
+        id: 'invalid-node',
         newParentId: 'parent-456',
         ...testCredentials
       });
@@ -1000,7 +1228,7 @@ describe('Workflowy MCP Tools', () => {
   describe('get_node_by_id', () => {
     it('should retrieve a node by ID with default parameters', async () => {
       const result = await tools.get_node_by_id.handler({
-        nodeId: 'test-node-123',
+        id: 'test-node-123',
         ...testCredentials
       });
 
@@ -1016,7 +1244,7 @@ describe('Workflowy MCP Tools', () => {
 
     it('should respect maxDepth=0 (no children)', async () => {
       const result = await tools.get_node_by_id.handler({
-        nodeId: 'test-node-123',
+        id: 'test-node-123',
         maxDepth: 0,
         ...testCredentials
       });
@@ -1027,7 +1255,7 @@ describe('Workflowy MCP Tools', () => {
 
     it('should respect maxDepth=1 (include first level children)', async () => {
       const result = await tools.get_node_by_id.handler({
-        nodeId: 'test-node-123',
+        id: 'test-node-123',
         maxDepth: 1,
         ...testCredentials
       });
@@ -1044,7 +1272,7 @@ describe('Workflowy MCP Tools', () => {
 
     it('should respect includeFields parameter', async () => {
       const result = await tools.get_node_by_id.handler({
-        nodeId: 'test-node-123',
+        id: 'test-node-123',
         includeFields: ['id', 'name'],
         ...testCredentials
       });
@@ -1063,7 +1291,7 @@ describe('Workflowy MCP Tools', () => {
 
     it('should truncate content with preview parameter', async () => {
       const result = await tools.get_node_by_id.handler({
-        nodeId: 'test-node-123',
+        id: 'test-node-123',
         includeFields: ['id', 'name', 'note'],
         preview: 10, // Truncate to 10 characters
         ...testCredentials
@@ -1086,7 +1314,7 @@ describe('Workflowy MCP Tools', () => {
 
     it('should combine all parameters correctly', async () => {
       const result = await tools.get_node_by_id.handler({
-        nodeId: 'test-node-123',
+        id: 'test-node-123',
         maxDepth: 1,
         includeFields: ['id', 'name'],
         preview: 15,
@@ -1116,7 +1344,7 @@ describe('Workflowy MCP Tools', () => {
       const errorTools = createTestTools(errorClient);
       
       const result = await errorTools.get_node_by_id.handler({
-        nodeId: 'invalid-node',
+        id: 'invalid-node',
         ...testCredentials
       });
 
