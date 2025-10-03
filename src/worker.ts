@@ -189,26 +189,26 @@ class WorkflowyMCPServer {
         return null;
       }
 
-      // Retrieve token data from KV storage
-      const tokenData = await env.OAUTH_KV?.get(token);
+      // Retrieve token data from KV storage (tokens are stored with 'token:' prefix)
+      const tokenData = await env.OAUTH_KV?.get(`token:${token}`);
       if (!tokenData) {
         return null;
       }
 
       const parsedData = JSON.parse(tokenData);
-      
+
       // Verify token hasn't expired
       if (parsedData.expires_at && Date.now() > parsedData.expires_at) {
         // Clean up expired token
-        await env.OAUTH_KV?.delete(token);
+        await env.OAUTH_KV?.delete(`token:${token}`);
         return null;
       }
 
-      // Return the stored Workflowy credentials
-      if (parsedData.username && parsedData.password) {
+      // Return the stored Workflowy credentials (stored as workflowy_username/workflowy_password)
+      if (parsedData.workflowy_username && parsedData.workflowy_password) {
         return {
-          username: parsedData.username,
-          password: parsedData.password
+          username: parsedData.workflowy_username,
+          password: parsedData.workflowy_password
         };
       }
 
@@ -857,8 +857,63 @@ export default {
 
     // MCP endpoint - implements MCP HTTP transport protocol
     if (url.pathname === '/mcp') {
-      // Note: Authentication is handled at the MCP JSON-RPC level to support authorization_token parameter
-      // This allows Claude connectors to send credentials in the MCP request rather than HTTP headers
+      // Enforce OAuth authentication for production environment
+      // This ensures Claude initiates the OAuth flow when connecting
+      if (config.getEnvironment() === 'production') {
+        const authHeader = request.headers.get('Authorization');
+        const token = authHeader?.replace('Bearer ', '') || null;
+
+        // Check if valid OAuth token is provided
+        if (!token || !token.startsWith('oauth_access_')) {
+          logger.warn('MCP access denied - OAuth required', {
+            hasAuthHeader: !!authHeader,
+            tokenPrefix: token?.substring(0, 12)
+          });
+
+          return new Response(JSON.stringify({
+            error: 'Unauthorized',
+            message: 'OAuth authentication required. Please authenticate via /.well-known/oauth-authorization-server',
+            oauth_discovery: `${url.protocol}//${url.host}/.well-known/oauth-authorization-server`,
+            requestId
+          }), {
+            status: 401,
+            headers: {
+              'Content-Type': 'application/json',
+              'WWW-Authenticate': `Bearer realm="${url.protocol}//${url.host}", error="invalid_token"`,
+              'X-Request-ID': requestId,
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+
+        // Validate OAuth token with KV storage
+        const tokenDataStr = await env.OAUTH_KV?.get(`token:${token}`);
+        if (!tokenDataStr) {
+          logger.warn('MCP access denied - Invalid OAuth token', { token: token.substring(0, 20) });
+
+          return new Response(JSON.stringify({
+            error: 'Unauthorized',
+            message: 'Invalid or expired OAuth token. Please re-authenticate.',
+            oauth_discovery: `${url.protocol}//${url.host}/.well-known/oauth-authorization-server`,
+            requestId
+          }), {
+            status: 401,
+            headers: {
+              'Content-Type': 'application/json',
+              'WWW-Authenticate': `Bearer realm="${url.protocol}//${url.host}", error="invalid_token"`,
+              'X-Request-ID': requestId,
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+
+        // Token is valid - proceed with request
+        const tokenData = JSON.parse(tokenDataStr);
+        logger.info('MCP access granted via OAuth', {
+          tokenAge: tokenData.created_at ? Date.now() - tokenData.created_at : 'unknown',
+          username: tokenData.workflowy_username
+        });
+      }
 
       if (request.method === 'POST') {
         try {
@@ -1248,11 +1303,13 @@ export default {
           
           // Store token in KV (only if available)
           if (env.OAUTH_KV) {
+            const now = Date.now();
             const tokenData = {
               client_id, scope: authData.scope,
               workflowy_username: authData.workflowy_username,
               workflowy_password: authData.workflowy_password,
-              expires_at: Date.now() + (3600 * 1000)
+              created_at: now,
+              expires_at: now + (3600 * 1000)
             };
             await env.OAUTH_KV.put(`token:${access_token}`, JSON.stringify(tokenData), { expirationTtl: 3600 });
           }

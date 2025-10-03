@@ -8,17 +8,36 @@ The Model Context Protocol (MCP) is a standardized way for AI models to interact
 
 ## 🚀 Quick Start
 
-### Option 1: Claude Web Custom Connector (OAuth) 🎯
+### Option 1: Claude Web & Desktop Custom Connector 🎯
 
-**For Claude Pro, Max, Team, or Enterprise users** - Secure OAuth integration:
+**For Claude Pro, Max, Team, or Enterprise users** - Two authentication methods:
 
-#### Easy Setup - OAuth Flow
-1. Go to **Claude Settings** → **Connectors** → **Add Connector** → **Custom Connector**
-2. **Name**: `Workflowy MCP`
-3. **Remote MCP server URL**: `https://{worker-name}.{cloudflare-account}.workers.dev/mcp`
-4. **OAuth Client ID**: *(leave empty)*
-5. **OAuth Client Secret**: *(leave empty)*
-6. **Test Connection** → Enter Workflowy credentials in secure form → **Authorize**
+#### Method A: OAuth Flow (Recommended)
+Claude connectors support OAuth authentication through empty OAuth fields:
+
+1. **Configure Custom Connector**:
+   - Go to **Claude Settings** → **Connectors** → **Add Connector** → **Custom Connector**
+   - **Name**: `Workflowy MCP`
+   - **Server URL**: `https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp`
+   - **OAuth Client ID**: *(leave empty)*
+   - **OAuth Client Secret**: *(leave empty)*
+
+2. **Test Connection**:
+   - Click "Test Connection"
+   - You'll be redirected to enter your Workflowy credentials in a secure form
+   - Click **Authorize** to complete the OAuth flow
+
+#### Method B: Direct Token (Advanced)
+For advanced users or custom MCP clients:
+
+1. **Generate Authentication Token**:
+   ```bash
+   curl -X POST https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup \
+     -H "Content-Type: application/json" \
+     -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
+   ```
+
+2. **Use Token**: Pass the returned token as `authorization_token` parameter in MCP requests or use it with custom MCP clients that support token authentication.
 
 #### Start Using
 Ask Claude natural language questions like:
@@ -34,7 +53,7 @@ Use our hosted server with Claude Code CLI:
 
 #### Step 1: Generate Your Authentication Token
 ```bash
-curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
+curl -X POST https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup \
   -H "Content-Type: application/json" \
   -d '{"username": "your_workflowy_username", "password": "your_workflowy_password"}'
 ```
@@ -45,8 +64,8 @@ Save the returned token from the response.
 ```bash
 # Add using JSON configuration (recommended)
 claude mcp add-json workflowy-remote '{
-  "type": "http", 
-  "url": "https://{worker-name}.{cloudflare-account}.workers.dev/mcp",
+  "type": "http",
+  "url": "https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp",
   "headers": {
     "Authorization": "Bearer YOUR_TOKEN_HERE"
   }
@@ -56,7 +75,7 @@ claude mcp add-json workflowy-remote '{
 claude mcp list
 ```
 
-**Expected output:** `workflowy-remote: https://{worker-name}.{cloudflare-account}.workers.dev/mcp (HTTP) - ✓ Connected`
+**Expected output:** `workflowy-remote: https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp (HTTP) - ✓ Connected`
 
 ### Option 3: Local Server
 
@@ -92,15 +111,18 @@ npm start
 2. **search_nodes** - Search with advanced filtering and context enrichment
 3. **get_node_by_id** - Get single node with full relationship details
 4. **create_node** - Create new nodes with smart positioning
-5. **update_node** - Modify existing nodes with validation
-6. **delete_node** - Remove nodes safely
-7. **move_node** - Reorganize nodes with priority control
-8. **toggle_complete** - Mark completion with timestamp tracking
+5. **batch_create_nodes** - Create multiple nodes atomically in a single operation
+6. **update_node** - Modify existing nodes with validation
+7. **batch_update_nodes** - Update multiple nodes atomically in a single operation
+8. **delete_node** - Remove nodes safely
+9. **move_node** - Reorganize nodes with priority control
+10. **toggle_complete** - Mark completion with timestamp tracking
 
 ### Enhanced Capabilities
 - **Smart Field Selection**: Use `includeFields` to request specific metadata
 - **Context-Aware Responses**: Automatic hydration of parentName, hierarchy, siblings
 - **Performance Optimization**: Only fetches requested metadata to minimize API calls
+- **Batch Operations**: Update or create multiple nodes in a single API call for efficiency
 - **Workflowy-Native Patterns**: Operations aligned with real Workflowy workflows
 
 ## 💡 Example Usage
@@ -136,12 +158,12 @@ The MCP server enables natural AI interactions with your Workflowy data:
 ### Authentication Examples
 ```bash
 # Generate secure token for Claude connector
-curl -X POST https://{worker-name}.{cloudflare-account}.workers.dev/connector/setup \
+curl -X POST https://mcp-workflowy-remote.daniel-bca.workers.dev/connector/setup \
   -H "Content-Type: application/json" \
   -d '{"username": "your_username", "password": "your_password"}'
 
 # Use token in Claude custom connector configuration
-# Server URL: https://{worker-name}.{cloudflare-account}.workers.dev/mcp
+# Server URL: https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp
 # Authentication: Bearer Token
 # API Key: [token from response above]
 ```

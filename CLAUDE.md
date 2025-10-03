@@ -160,8 +160,7 @@ ALLOWED_API_KEYS=local-key-1,local-key-2
 ```bash
 # Set secrets for the worker (used by all versions)
 wrangler secret put ALLOWED_API_KEYS
-wrangler secret put WORKFLOWY_USERNAME  # Optional fallback
-wrangler secret put WORKFLOWY_PASSWORD  # Optional fallback
+# Note: WORKFLOWY_USERNAME/WORKFLOWY_PASSWORD not needed - worker uses OIDC authentication
 ```
 
 #### **GitHub Secrets Configuration**

@@ -143,3 +143,6 @@ dist
 .mcp.json
 .wrangler/
 WORKFLOWY.md
+/books
+mcp-workflowy-remote.code-workspace
+.claude/settings.local.json
