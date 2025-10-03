@@ -8,11 +8,9 @@ main = "dist/worker.js"
 vars = { ENVIRONMENT = "production", DEBUG = "false" }
 
 # KV Namespaces for OAuth storage
-# Note: KV storage will be configured dynamically during deployment
-# OAuth will work with or without KV storage (credentials are passed in OAuth flow)
-# kv_namespaces = [
-#   { binding = "OAUTH_KV", id = "oauth-kv-namespace-id", preview_id = "oauth-kv-preview-id" }
-# ]
+kv_namespaces = [
+  { binding = "OAUTH_KV", id = "9f4ddde0570a4527b0318ee774e26d19", preview_id = "be7a48b639de41608d766a8ddcb7bdc6" }
+]
 
 # Observability configuration for comprehensive logging
 # Note: logpush requires Enterprise plan, using basic observability instead
