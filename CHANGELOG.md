@@ -1,3 +1,36 @@
+# [3.0.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.2.1...v3.0.0) (2025-10-03)
+
+
+### Features
+
+* enforce OAuth authentication for MCP endpoint in production ([f725745](https://github.com/dseeker/mcp-workflowy-remote/commit/f7257454e65311f3966a881c9fef134a26106b26))
+
+
+### BREAKING CHANGES
+
+* MCP endpoint now requires OAuth authentication in production environment
+
+- Require valid OAuth Bearer token for all /mcp requests in production
+- Return 401 Unauthorized with WWW-Authenticate header when token missing/invalid
+- Include oauth_discovery URL in error responses to guide OAuth flow
+- Fix OAuth token storage key format (add 'token:' prefix)
+- Fix OAuth credential extraction to use correct field names (workflowy_username/workflowy_password)
+- Add created_at timestamp to OAuth tokens for age tracking
+
+This change ensures Claude Remote Connectors properly initiate OAuth flow
+instead of attempting unauthenticated connections. When Claude tries to connect
+without authentication, it receives a 401 response which triggers the OAuth
+authorization flow, displaying the credential entry form to users.
+
+Development and staging environments remain unchanged and allow unauthenticated
+access for local testing.
+
+Closes: OAuth credential collection issue in Claude Web/Desktop connectors
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
 ## [2.2.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.2.0...v2.2.1) (2025-10-03)
 
 
