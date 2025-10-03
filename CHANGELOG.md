@@ -1,3 +1,10 @@
+## [3.0.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v3.0.0...v3.0.1) (2025-10-03)
+
+
+### Bug Fixes
+
+* add PKCE validation to OAuth token exchange ([6273e98](https://github.com/dseeker/mcp-workflowy-remote/commit/6273e9849acdb9d796c530e297d37674984d85ef))
+
 # [3.0.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.2.1...v3.0.0) (2025-10-03)
 
 
