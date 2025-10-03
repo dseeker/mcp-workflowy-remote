@@ -146,3 +146,10 @@ WORKFLOWY.md
 /books
 mcp-workflowy-remote.code-workspace
 .claude/settings.local.json
+
+# Private content files
+VISION.md
+workflowy-structure-map.md
+docs/LOG-COLLECTION.md
+scripts/collect-logs.js
+scripts/collect-logs-advanced.js
