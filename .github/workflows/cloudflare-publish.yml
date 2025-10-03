@@ -202,17 +202,18 @@ jobs:
             exit 1
           fi
           
-          # Test MCP endpoint
-          echo "Testing MCP endpoint..."
-          AUTH_SUCCESS=$(curl -s -X POST "$WORKER_URL/mcp" \
+          # Test MCP endpoint (should require OAuth in production)
+          echo "Testing MCP endpoint OAuth requirement..."
+          MCP_RESPONSE=$(curl -s -X POST "$WORKER_URL/mcp" \
             -H "Authorization: Bearer $FIRST_API_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}')
-          
-          if echo "$AUTH_SUCCESS" | grep -q -E "(result|tools|jsonrpc)"; then
-            echo "✅ MCP endpoint working"
+            -d '{"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0"}}}')
+
+          if echo "$MCP_RESPONSE" | grep -q "OAuth authentication required"; then
+            echo "✅ MCP endpoint correctly requires OAuth"
           else
-            echo "❌ MCP endpoint failed"
+            echo "❌ MCP endpoint failed - should require OAuth authentication"
+            echo "Response: $MCP_RESPONSE"
             exit 1
           fi
           
