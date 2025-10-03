@@ -246,7 +246,9 @@ class WorkflowyMCPServer {
             result: {
               protocolVersion: this.protocolVersion,
               capabilities: {
-                tools: {}
+                tools: {
+                  listChanged: false
+                }
               },
               serverInfo: {
                 name: this.name,
