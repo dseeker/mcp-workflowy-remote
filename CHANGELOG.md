@@ -1,3 +1,10 @@
+## [2.2.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.2.0...v2.2.1) (2025-10-03)
+
+
+### Bug Fixes
+
+* add listChanged capability to tools in initialize response ([ced3504](https://github.com/dseeker/mcp-workflowy-remote/commit/ced35046c05ff4220e7418f8dc78b5f502e2097b))
+
 # [2.2.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v2.1.0...v2.2.0) (2025-10-02)
 
 
