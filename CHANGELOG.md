@@ -1,3 +1,141 @@
+# [1.0.0](https://github.com/dseeker/mcp-workflowy-remote/compare/v0.3.0...v1.0.0) (2025-10-03)
+
+
+### Bug Fixes
+
+* Add endpoints for Claude Desktop debug and OAuth registration ([d29714c](https://github.com/dseeker/mcp-workflowy-remote/commit/d29714cd0d692a943d4a27c360312dc74346f450))
+* add KV namespace creation to main deployment step ([a9f206a](https://github.com/dseeker/mcp-workflowy-remote/commit/a9f206ae65131e70c526089aacd0c29b5b442ff0))
+* add listChanged capability to tools in initialize response ([3c38148](https://github.com/dseeker/mcp-workflowy-remote/commit/3c381480e53154dc71d28e0cb8366b24e0da03cc))
+* Add MCP-level authentication for tool calls ([f35570e](https://github.com/dseeker/mcp-workflowy-remote/commit/f35570e80927794c7644024768cd45cb985939aa))
+* add PKCE validation to OAuth token exchange ([bcad4b6](https://github.com/dseeker/mcp-workflowy-remote/commit/bcad4b6314f320aa3cb02f1ef61c124983184fb1))
+* Add support for authorization token in credential extraction ([9a21da0](https://github.com/dseeker/mcp-workflowy-remote/commit/9a21da02a952ac5271e1123b865dc9cae9aeb1d2))
+* add version validation to deployment verification tests ([d48b35e](https://github.com/dseeker/mcp-workflowy-remote/commit/d48b35ed63e6bf7854f58fbb52fa191c9f341616))
+* add version validation to deployment verification tests ([5b44d5f](https://github.com/dseeker/mcp-workflowy-remote/commit/5b44d5fa5071b87a2b43c6890b97ccd91e5f1117))
+* Configure KV namespace for OAuth storage ([1087c50](https://github.com/dseeker/mcp-workflowy-remote/commit/1087c50527ddf9ea9a55db802cc5ba3a924c1484))
+* correct OAuth provider library dependency ([1c80b3a](https://github.com/dseeker/mcp-workflowy-remote/commit/1c80b3a61c6a34ad869c546a4b055f689a954d6e))
+* correct preview deployment to use worker versions instead of separate workers ([5f73113](https://github.com/dseeker/mcp-workflowy-remote/commit/5f73113012ef578ce0af47e82bb4734701f1241a))
+* deploy worker before uploading secrets to avoid Cloudflare API error ([2deb3a5](https://github.com/dseeker/mcp-workflowy-remote/commit/2deb3a5de12931fc3b3d128d5da3e0bf2aabbcb6))
+* Handle JSON-RPC notifications without id ([9b47e30](https://github.com/dseeker/mcp-workflowy-remote/commit/9b47e30cc607c4e563a93237ed2a104b4abaf948))
+* improve error reporting in GitHub Actions deployment ([95bdfa2](https://github.com/dseeker/mcp-workflowy-remote/commit/95bdfa245043c5362afa139d33eb538866c7a75d))
+* improve error reporting in GitHub Actions deployment ([a493575](https://github.com/dseeker/mcp-workflowy-remote/commit/a49357504155ff35b4ec54d9ff4e489172e05f68))
+* improve KV namespace detection and parsing in deployment ([6957664](https://github.com/dseeker/mcp-workflowy-remote/commit/695766418196bca76a804d3e6df68532cee4afd8))
+* make GitHub Actions log parsing deployment-agnostic ([c5f2859](https://github.com/dseeker/mcp-workflowy-remote/commit/c5f285974287c30caba38e74270de1440b592e5b))
+* make GitHub Actions log parsing deployment-agnostic ([cf833eb](https://github.com/dseeker/mcp-workflowy-remote/commit/cf833ebd537118f7e7e8a30bac91c2ebfe33f782))
+* move OAuth endpoints before authentication check ([415b6f8](https://github.com/dseeker/mcp-workflowy-remote/commit/415b6f8753bce4fcc676c691543911e8a810aedb))
+* pull semantic-release changes before production deployment ([e707b08](https://github.com/dseeker/mcp-workflowy-remote/commit/e707b08b15bdbd5205addd00f255933e89f01e84))
+* pull semantic-release changes before production deployment ([ddf63d1](https://github.com/dseeker/mcp-workflowy-remote/commit/ddf63d14c962f2fe40a3662810c2f66b4f6973fd))
+* remove global scope timer from RequestDeduplicator ([4f58e35](https://github.com/dseeker/mcp-workflowy-remote/commit/4f58e350c3fb89aa2a08f85d63f9a9b670196522))
+* remove global scope timer from RequestDeduplicator ([4030665](https://github.com/dseeker/mcp-workflowy-remote/commit/403066568cb1d634e146f2d7b67738b99ef3e314))
+* remove secret upload from preview deployment ([a0a96eb](https://github.com/dseeker/mcp-workflowy-remote/commit/a0a96eb5d1849f33d2eeaacdc71f9f5a03d8f218))
+* rename project from mcp-workflowy to mcp-workflowy-remote and fix test failures ([8493749](https://github.com/dseeker/mcp-workflowy-remote/commit/8493749dccb2b30c4a0dd33604b2d74e72613d80))
+* rename project from mcp-workflowy to mcp-workflowy-remote and fix test failures ([efad2c6](https://github.com/dseeker/mcp-workflowy-remote/commit/efad2c6a3036866c58105511237c37a837ae27ed))
+* resolve 429 rate limiting issues by removing redundant retry logic ([69eef2b](https://github.com/dseeker/mcp-workflowy-remote/commit/69eef2bb061055b3f498a929d2186cb22ca08b8c))
+* resolve 429 rate limiting issues by removing redundant retry logic ([6b3e103](https://github.com/dseeker/mcp-workflowy-remote/commit/6b3e10348327c1aba5a9477c82b3aa725093e4aa))
+* resolve deployment issues and enhance log collection ([03a7330](https://github.com/dseeker/mcp-workflowy-remote/commit/03a73301abf0a9357f2c0ebf17dded8b8aaba2cb))
+* resolve deployment issues and enhance log collection ([2690cac](https://github.com/dseeker/mcp-workflowy-remote/commit/2690cac52d3c78abfa2d8b3d6ab7ed860a3de9ff))
+* resolve GitHub Actions deployment verification issues ([f0b8692](https://github.com/dseeker/mcp-workflowy-remote/commit/f0b8692d6f827a760ff3a0f5d107f6863049db01))
+* resolve GitHub Actions deployment verification issues ([b7dd1cb](https://github.com/dseeker/mcp-workflowy-remote/commit/b7dd1cbef91cab8f635559832fa3c4f22a9d9ad1))
+* resolve remaining bash syntax error in log statistics calculation ([1ba8873](https://github.com/dseeker/mcp-workflowy-remote/commit/1ba8873efeb94c25cefcfd6557a346c75375ab24))
+* resolve remaining bash syntax error in log statistics calculation ([dbe9cd9](https://github.com/dseeker/mcp-workflowy-remote/commit/dbe9cd934df53928fe300e9f2cf3d25223103176))
+* resolve worker log collection issues in GitHub Actions ([ec08e91](https://github.com/dseeker/mcp-workflowy-remote/commit/ec08e91a05ad4a7ee913b6fb2b6cc1f30996e4f4))
+* resolve worker log collection issues in GitHub Actions ([119c7b7](https://github.com/dseeker/mcp-workflowy-remote/commit/119c7b7d66c7732df7ef418df21ec2a8482c7955))
+* resolve wrangler PATH issue in log collection ([afef3ed](https://github.com/dseeker/mcp-workflowy-remote/commit/afef3ed6096780063859dded9fecf6cabaa4d0ee))
+* resolve wrangler PATH issue in log collection ([9d52348](https://github.com/dseeker/mcp-workflowy-remote/commit/9d523487db854d1479b7e96baa8c20d4263151fb))
+* restore batch operations functionality after merge ([ca53c04](https://github.com/dseeker/mcp-workflowy-remote/commit/ca53c04084b0338bec20bf5dab625b69d46ee7cf))
+* restore batch operations functionality after merge ([e104d1b](https://github.com/dseeker/mcp-workflowy-remote/commit/e104d1b99679be4eaf417205e9a4933fc8e572ad))
+* simplify deployment by removing problematic KV namespace detection ([834b281](https://github.com/dseeker/mcp-workflowy-remote/commit/834b281f7f5f96e29fbe619e21f2911da77367aa))
+* Update deployment test to expect OAuth requirement ([cd98027](https://github.com/dseeker/mcp-workflowy-remote/commit/cd9802794bf892c58a451b4583d54c9a59b1626c))
+* update OAuth deployment wrangler commands to use new CLI syntax ([ad2411f](https://github.com/dseeker/mcp-workflowy-remote/commit/ad2411f203d07654f4f6e0a9e3565a56ffadaa10))
+* update wrangler KV namespace commands to use new CLI syntax ([e745dd0](https://github.com/dseeker/mcp-workflowy-remote/commit/e745dd071c419466e238c3a48dd205e6d0069b19))
+* Update wrangler.toml observability and config vars ([c09c1e4](https://github.com/dseeker/mcp-workflowy-remote/commit/c09c1e48f19841cf41978816bb3b2297d768e552))
+* upload secrets in preview deployment workflow ([6706e8a](https://github.com/dseeker/mcp-workflowy-remote/commit/6706e8aba47f22c734019ea3d60d1818ea8d6617))
+* use clean branch prefix for preview URLs ([e505858](https://github.com/dseeker/mcp-workflowy-remote/commit/e50585847c19bfbf06b17ee7e3d7110d9d3a1d75))
+* use worker build from semantic-release for correct version ([14198fa](https://github.com/dseeker/mcp-workflowy-remote/commit/14198fa5a321ab6bcc34b2275fbe028d2338ce60))
+* use worker build from semantic-release for correct version ([87954bf](https://github.com/dseeker/mcp-workflowy-remote/commit/87954bfbbc5f681c7522356d3381d2706a611fdd))
+
+
+### Features
+
+* add Anthropic custom connector support with token-based authentication ([651b0ba](https://github.com/dseeker/mcp-workflowy-remote/commit/651b0ba74e25cc04b5b6e651df98734a5a469434))
+* Add file-based caching and fix 429 rate limiting ([d9aeff6](https://github.com/dseeker/mcp-workflowy-remote/commit/d9aeff670d1c2af9fd43160bc1cea4d569d63b3f))
+* add isCompleted support to batch_update_nodes and improve parameter descriptions ([3255232](https://github.com/dseeker/mcp-workflowy-remote/commit/3255232212fa25eddc7cd0f55584fd2e1bab02f4))
+* add persistent preview alias for stable preview URL ([665f45e](https://github.com/dseeker/mcp-workflowy-remote/commit/665f45e2228607c4334b44331adfeadbdfd5a48b))
+* Add robust retry logic and batch node creation to Workflowy tools ([df59902](https://github.com/dseeker/mcp-workflowy-remote/commit/df5990289c320efc0c01c8481303975230283409))
+* Add robust retry logic and batch node creation to Workflowy tools ([5501798](https://github.com/dseeker/mcp-workflowy-remote/commit/5501798cc4297e55271db097a3608716523aeee7))
+* comprehensive performance and resilience improvements with log collection ([ac07472](https://github.com/dseeker/mcp-workflowy-remote/commit/ac0747246685fc94ba29a7345ea684d90b63d2de))
+* comprehensive performance and resilience improvements with log collection ([9228c22](https://github.com/dseeker/mcp-workflowy-remote/commit/9228c22756d2127e92ec53429a9b96844b6b5727))
+* enforce OAuth authentication for MCP endpoint in production ([dc2e8ae](https://github.com/dseeker/mcp-workflowy-remote/commit/dc2e8aec3e74ddd342d8a49fd777cefb55edf138))
+* enhance ADRs with Workflowy compound operations ([c284a8c](https://github.com/dseeker/mcp-workflowy-remote/commit/c284a8ca7bdc6fe5c87d18232ba28f4a8c7f0375))
+* enhance ADRs with Workflowy compound operations ([2f3e1c7](https://github.com/dseeker/mcp-workflowy-remote/commit/2f3e1c7047a73ead0329d1778d843d97430e4d1d))
+* enhance remaining ADRs with compound operations ([f0707cf](https://github.com/dseeker/mcp-workflowy-remote/commit/f0707cfcaace53a03f96fb55c4ef4c14306a5d01))
+* enhance remaining ADRs with compound operations ([143bcd3](https://github.com/dseeker/mcp-workflowy-remote/commit/143bcd3ea2719f01609f6a8cdd7012925caa12a9))
+* enhance worker log collection with real-time output ([b35091c](https://github.com/dseeker/mcp-workflowy-remote/commit/b35091c78fdc219ad6894a4f9216cf893deefb1c))
+* enhance worker log collection with real-time output ([d36beca](https://github.com/dseeker/mcp-workflowy-remote/commit/d36becada47310586d8bfd1b5972a042633e2b4b))
+* implement metadata hydration architecture in client and tools ([2959969](https://github.com/dseeker/mcp-workflowy-remote/commit/29599692597e0ebff3d35fc80071b071ebd362e5))
+* implement metadata hydration architecture in client and tools ([de0870e](https://github.com/dseeker/mcp-workflowy-remote/commit/de0870e6770b360d36764a0b75c0f9fcd8d02b3e))
+* implement Phase 0 critical missing operations ([875a88d](https://github.com/dseeker/mcp-workflowy-remote/commit/875a88db0254e236d83e4f07b018e5d78d377a79))
+* integrate enhanced retry logic with upstream OAuth and metadata features ([aef02a8](https://github.com/dseeker/mcp-workflowy-remote/commit/aef02a8320816354a6d623f48498e8292d9d768e))
+* integrate enhanced retry logic with upstream OAuth and metadata features ([8c02ff9](https://github.com/dseeker/mcp-workflowy-remote/commit/8c02ff9aba540334b866770d257f441eee2cc42c))
+* integrate OAuth 2.0 authentication directly into existing worker ([452f335](https://github.com/dseeker/mcp-workflowy-remote/commit/452f33595409d80e3808f6174dacc7e3c143eaf8))
+* optimize worker log output for GitHub Actions readability ([34088c1](https://github.com/dseeker/mcp-workflowy-remote/commit/34088c1548827aadb9b9d4ac5a515a374f385314))
+* optimize worker log output for GitHub Actions readability ([32dc666](https://github.com/dseeker/mcp-workflowy-remote/commit/32dc6666f41cde89804edc7be657e3a9a12be608))
+* restore local development changes after remote filter ([041afb7](https://github.com/dseeker/mcp-workflowy-remote/commit/041afb7b3bce3469b0066ea5016ea529eaaecc67))
+* restore local development changes after remote filter ([f4848e4](https://github.com/dseeker/mcp-workflowy-remote/commit/f4848e46b112b1e85eb1982f10dbce4e5daf2db5))
+
+
+### Performance Improvements
+
+* optimize post-deployment workflow for faster execution ([1bf04a9](https://github.com/dseeker/mcp-workflowy-remote/commit/1bf04a953b8081413e9a9972f8a145600ea5f363))
+* optimize post-deployment workflow for faster execution ([8cdfe4c](https://github.com/dseeker/mcp-workflowy-remote/commit/8cdfe4cd2575d66ea98cb0bda1bb3f8aea70be05))
+
+
+### BREAKING CHANGES
+
+* MCP endpoint now requires OAuth authentication in production environment
+
+- Require valid OAuth Bearer token for all /mcp requests in production
+- Return 401 Unauthorized with WWW-Authenticate header when token missing/invalid
+- Include oauth_discovery URL in error responses to guide OAuth flow
+- Fix OAuth token storage key format (add 'token:' prefix)
+- Fix OAuth credential extraction to use correct field names (workflowy_username/workflowy_password)
+- Add created_at timestamp to OAuth tokens for age tracking
+
+This change ensures Claude Remote Connectors properly initiate OAuth flow
+instead of attempting unauthenticated connections. When Claude tries to connect
+without authentication, it receives a 401 response which triggers the OAuth
+authorization flow, displaying the credential entry form to users.
+
+Development and staging environments remain unchanged and allow unauthenticated
+access for local testing.
+
+Closes: OAuth credential collection issue in Claude Web/Desktop connectors
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+* Enhanced retry logic now uses ultra-persistent presets that may change operation timing behavior for rate-limited scenarios.
+
+- Merge upstream OAuth 2.0 authentication (v0.10.7)
+- Integrate enhanced retry logic with rate limiting
+- Preserve batch operations with atomic transactions
+- Add BATCH and RATE_LIMIT_PERSISTENT retry presets
+- Enhance error handling with configurable OverloadError
+- Maintain backwards compatibility for all MCP tools
+
+This release combines the latest upstream features with our enhanced
+retry infrastructure for production-grade rate limit handling.
+* Enhanced retry logic now uses ultra-persistent presets that may change operation timing behavior for rate-limited scenarios.
+
+- Merge upstream OAuth 2.0 authentication (v0.10.7)
+- Integrate enhanced retry logic with rate limiting
+- Preserve batch operations with atomic transactions
+- Add BATCH and RATE_LIMIT_PERSISTENT retry presets
+- Enhance error handling with configurable OverloadError
+- Maintain backwards compatibility for all MCP tools
+
+This release combines the latest upstream features with our enhanced
+retry infrastructure for production-grade rate limit handling.
+
 ## [3.0.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v3.0.1...v3.0.2) (2025-10-03)
 
 
