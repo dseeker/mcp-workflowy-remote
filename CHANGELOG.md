@@ -1,3 +1,10 @@
+## [3.0.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v3.0.1...v3.0.2) (2025-10-03)
+
+
+### Bug Fixes
+
+* Configure KV namespace for OAuth storage ([cd8fec6](https://github.com/dseeker/mcp-workflowy-remote/commit/cd8fec634d39785e2896c75a3187dc8e92999938))
+
 ## [3.0.1](https://github.com/dseeker/mcp-workflowy-remote/compare/v3.0.0...v3.0.1) (2025-10-03)
 
 
