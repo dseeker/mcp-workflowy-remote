@@ -1,3 +1,10 @@
+## [3.0.3](https://github.com/dseeker/mcp-workflowy-remote/compare/v3.0.2...v3.0.3) (2025-10-03)
+
+
+### Bug Fixes
+
+* Update deployment test to expect OAuth requirement ([e061636](https://github.com/dseeker/mcp-workflowy-remote/commit/e06163629572799eec2b1c530202019fa8cb1469))
+
 ## [3.0.2](https://github.com/dseeker/mcp-workflowy-remote/compare/v3.0.1...v3.0.2) (2025-10-03)
 
 
