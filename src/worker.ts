@@ -1152,6 +1152,8 @@ export default {
         const redirect_uri = params.get('redirect_uri') || 'https://claude.ai';
         const scope = params.get('scope') || 'workflowy:read workflowy:write';
         const state = params.get('state') || '';
+        const code_challenge = params.get('code_challenge') || '';
+        const code_challenge_method = params.get('code_challenge_method') || '';
 
         const html = `<!DOCTYPE html>
 <html>
@@ -1193,6 +1195,8 @@ export default {
             <input type="hidden" name="redirect_uri" value="${redirect_uri}">
             <input type="hidden" name="scope" value="${scope}">
             <input type="hidden" name="state" value="${state}">
+            <input type="hidden" name="code_challenge" value="${code_challenge}">
+            <input type="hidden" name="code_challenge_method" value="${code_challenge_method}">
             
             <div class="form-group">
                 <label for="workflowy_username">Workflowy Username/Email:</label>
@@ -1223,6 +1227,8 @@ export default {
           const redirect_uri = formData.get('redirect_uri') as string;
           const scope = formData.get('scope') as string;
           const state = formData.get('state') as string;
+          const code_challenge = formData.get('code_challenge') as string;
+          const code_challenge_method = formData.get('code_challenge_method') as string;
           const workflowy_username = formData.get('workflowy_username') as string;
           const workflowy_password = formData.get('workflowy_password') as string;
 
@@ -1242,7 +1248,9 @@ export default {
           // Store in KV (only if available)
           if (env.OAUTH_KV) {
             const authState = {
-              client_id, redirect_uri, scope, state, workflowy_username, workflowy_password,
+              client_id, redirect_uri, scope, state,
+              code_challenge, code_challenge_method,
+              workflowy_username, workflowy_password,
               expires_at: Date.now() + (10 * 60 * 1000)
             };
             await env.OAUTH_KV.put(`auth:${code}`, JSON.stringify(authState), { expirationTtl: 600 });
@@ -1271,6 +1279,7 @@ export default {
           const code = formData.get('code') as string;
           const redirect_uri = formData.get('redirect_uri') as string;
           const client_id = formData.get('client_id') as string;
+          const code_verifier = formData.get('code_verifier') as string;
 
           if (grant_type !== 'authorization_code') {
             return new Response(JSON.stringify({ error: 'unsupported_grant_type' }), {
@@ -1284,9 +1293,35 @@ export default {
             const authDataStr = await env.OAUTH_KV.get(`auth:${code}`);
             if (authDataStr) {
               authData = JSON.parse(authDataStr);
+
+              // Validate client_id, redirect_uri, and expiration
               if (authData.client_id !== client_id || authData.redirect_uri !== redirect_uri || authData.expires_at < Date.now()) {
                 authData = null;
-              } else {
+              }
+
+              // Validate PKCE code_verifier if code_challenge was provided
+              if (authData && authData.code_challenge && code_verifier) {
+                // Compute SHA-256 hash of code_verifier
+                const encoder = new TextEncoder();
+                const data = encoder.encode(code_verifier);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const computed_challenge = btoa(String.fromCharCode(...hashArray))
+                  .replace(/\+/g, '-')
+                  .replace(/\//g, '_')
+                  .replace(/=/g, '');
+
+                // Verify challenge matches
+                if (computed_challenge !== authData.code_challenge) {
+                  logger.warn('PKCE validation failed', {
+                    expected: authData.code_challenge.substring(0, 20),
+                    computed: computed_challenge.substring(0, 20)
+                  });
+                  authData = null;
+                }
+              }
+
+              if (authData) {
                 await env.OAUTH_KV.delete(`auth:${code}`); // Use once
               }
             }
