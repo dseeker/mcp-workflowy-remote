@@ -389,9 +389,10 @@ export const workflowyTools: Record<string, any> = {
       filePath: z.string().describe("Absolute file path where data will be written (e.g., /home/user/output.json or C:\\Users\\user\\output.md)"),
       query: z.string().optional().describe("Search query to find nodes to export (omit if using nodeId or exporting root)"),
       nodeId: z.string().optional().describe("Specific node ID to export (omit if using query or exporting root)"),
-      format: z.enum(['json', 'markdown', 'txt']).default('json').describe("Output format: 'json' (structured data), 'markdown' (formatted with checkboxes), or 'txt' (plain text)"),
+      format: z.enum(['json', 'markdown', 'txt']).default('json').describe("Output format: 'json' (structured data), 'markdown' (indented outline), or 'txt' (plain text)"),
       maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, etc.)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in JSON export (all formats include name, note, isCompleted, children)")
+      includeFields: z.array(z.string()).optional().describe("Fields to include in JSON export (all formats include name, note, isCompleted, children)"),
+      includeIds: z.boolean().optional().describe("Include node IDs in markdown/txt exports")
     },
     annotations: {
         title: "Export Workflowy data to file",
@@ -400,8 +401,8 @@ export const workflowyTools: Record<string, any> = {
         idempotentHint: true,
         openWorldHint: false
     },
-    handler: async ({ filePath, query, nodeId, format = 'json', maxDepth, includeFields, username, password }:
-        { filePath: string, query?: string, nodeId?: string, format?: 'json' | 'markdown' | 'txt', maxDepth?: number, includeFields?: string[], username?: string, password?: string },
+    handler: async ({ filePath, query, nodeId, format = 'json', maxDepth, includeFields, includeIds, username, password }:
+      { filePath: string, query?: string, nodeId?: string, format?: 'json' | 'markdown' | 'txt', maxDepth?: number, includeFields?: string[], includeIds?: boolean, username?: string, password?: string },
         client: typeof workflowyClient) => {
       try {
         // Validate file path
@@ -416,13 +417,13 @@ export const workflowyTools: Record<string, any> = {
         let dataDescription;
 
         if (nodeId) {
-          data = await workflowyClient.getNodeById(nodeId, username, password, maxDepth, includeFields);
+          data = await workflowyClient.getNodeById(nodeId, username, password, maxDepth || 0, includeFields);
           dataDescription = `node ${nodeId}`;
         } else if (query) {
-          data = await workflowyClient.search(query, username, password, undefined, maxDepth, includeFields);
+          data = await workflowyClient.search(query, username, password, undefined, maxDepth || 0, includeFields);
           dataDescription = `search results for "${query}" (${Array.isArray(data) ? data.length : 1} nodes)`;
         } else {
-          data = await workflowyClient.getRootItems(username, password, maxDepth, includeFields);
+          data = await workflowyClient.getRootItems(username, password, maxDepth || 0, includeFields);
           dataDescription = `root nodes (${Array.isArray(data) ? data.length : 1} nodes)`;
         }
 
@@ -430,10 +431,10 @@ export const workflowyTools: Record<string, any> = {
         let content: string;
         switch (format) {
           case 'markdown':
-            content = convertToMarkdown(data);
+            content = convertToMarkdown(data, 0, { includeIds });
             break;
           case 'txt':
-            content = convertToPlainText(data);
+            content = convertToPlainText(data, 0, { includeIds });
             break;
           default:
             content = JSON.stringify(data, null, 2);
