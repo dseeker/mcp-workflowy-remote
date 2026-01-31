@@ -7,10 +7,10 @@ const isCloudflareWorker = typeof globalThis !== 'undefined' && 'caches' in glob
 const simpleLogger = {
     info: (message: string, meta?: any) => {
         const logMessage = meta ? `${message} ${JSON.stringify(meta)}` : message;
-        console.log(`[INFO] ${logMessage}`);
+        console.error(`[INFO] ${logMessage}`);
     },
     error: (message: string, error?: Error | any, meta?: any) => {
-        const errorMeta = error instanceof Error 
+        const errorMeta = error instanceof Error
             ? { error: error.message, stack: error.stack, ...meta }
             : { error, ...meta };
         const logMessage = `${message} ${JSON.stringify(errorMeta)}`;
@@ -18,11 +18,11 @@ const simpleLogger = {
     },
     warn: (message: string, meta?: any) => {
         const logMessage = meta ? `${message} ${JSON.stringify(meta)}` : message;
-        console.warn(`[WARN] ${logMessage}`);
+        console.error(`[WARN] ${logMessage}`);
     },
     debug: (message: string, meta?: any) => {
         const logMessage = meta ? `${message} ${JSON.stringify(meta)}` : message;
-        console.debug(`[DEBUG] ${logMessage}`);
+        console.error(`[DEBUG] ${logMessage}`);
     }
 };
 
@@ -68,11 +68,11 @@ if (isCloudflareWorker) {
             defaultMeta: { service: 'mcp-workflowy-remote' },
             transports: [
                 // Write all logs to simple files (no rotation)
-                new winston.transports.File({ 
-                    filename: path.join(logsDir, 'error.log'), 
+                new winston.transports.File({
+                    filename: path.join(logsDir, 'error.log'),
                     level: 'error'
                 }),
-                new winston.transports.File({ 
+                new winston.transports.File({
                     filename: path.join(logsDir, 'combined.log')
                 }),
             ],
@@ -105,7 +105,7 @@ export const log = {
         }
     },
     error: (message: string, error?: Error | any, meta?: any) => {
-        const errorMeta = error instanceof Error 
+        const errorMeta = error instanceof Error
             ? { error: error.message, stack: error.stack, ...meta }
             : { error, ...meta };
         if (logger.error) {
@@ -128,7 +128,7 @@ export const log = {
             simpleLogger.debug(message, meta);
         }
     },
-    
+
     // Specialized logging for MCP operations
     mcpCall: (toolName: string, params: any, executionTime?: number) => {
         const logData = {
@@ -143,7 +143,7 @@ export const log = {
             simpleLogger.info('MCP Tool Called', logData);
         }
     },
-    
+
     workflowyRequest: (operation: string, params: any, responseSize?: number) => {
         const logData = {
             operation,
@@ -157,11 +157,11 @@ export const log = {
             simpleLogger.debug('Workflowy API Request', logData);
         }
     },
-    
+
     workflowyResponse: (operation: string, response: any, size?: number) => {
         const responseStr = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
         const responseSize = size || responseStr.length;
-        
+
         const logData = {
             operation,
             fullResponse: responseStr,
@@ -174,7 +174,7 @@ export const log = {
             simpleLogger.debug('Workflowy API Response', logData);
         }
     },
-    
+
     performance: (operation: string, duration: number, additionalMetrics?: any) => {
         const logData = {
             operation,
@@ -188,7 +188,7 @@ export const log = {
             simpleLogger.info('Performance Metric', logData);
         }
     },
-    
+
     tokenLimitWarning: (operation: string, tokenCount: number, limit: number = 25000) => {
         const logData = {
             operation,
@@ -207,7 +207,7 @@ export const log = {
 
 // Log the initialization if we have a proper logger
 if (!isCloudflareWorker && typeof process !== 'undefined' && process.cwd) {
-    log.info('Logger initialized', { 
+    log.info('Logger initialized', {
         environment: isCloudflareWorker ? 'cloudflare-worker' : 'nodejs',
         hasWinston: !!logger.info,
         level: process.env.MCP_LOG_LEVEL || 'info',

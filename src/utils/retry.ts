@@ -56,7 +56,7 @@ export class RetryManager {
         return await fn();
       } catch (error: any) {
         lastError = this.enrichError(error, attempt, finalConfig.maxAttempts);
-        
+
         // Don't retry on final attempt
         if (attempt === finalConfig.maxAttempts) {
           break;
@@ -70,7 +70,7 @@ export class RetryManager {
         // Calculate delay with exponential backoff and jitter
         const delay = this.calculateDelay(attempt, finalConfig, error);
 
-        console.log(`[RETRY] Attempt ${attempt}/${finalConfig.maxAttempts} after ${delay}ms delay:`, {
+        console.error(`[RETRY] Attempt ${attempt}/${finalConfig.maxAttempts} after ${delay}ms delay:`, {
           error: error.message,
           status: error.status,
           retryable: error.retryable,
@@ -100,14 +100,14 @@ export class RetryManager {
     }
 
     // Check error type against non-retryable list
-    if (config.nonRetryableErrors?.some(pattern => 
+    if (config.nonRetryableErrors?.some(pattern =>
       error.name?.includes(pattern) || error.message?.includes(pattern)
     )) {
       return false;
     }
 
     // Check error type against retryable list
-    if (config.retryableErrors?.some(pattern => 
+    if (config.retryableErrors?.some(pattern =>
       error.name?.includes(pattern) || error.message?.includes(pattern)
     )) {
       return true;
@@ -167,7 +167,7 @@ export class RetryManager {
     enrichedError.attempt = attempt;
     enrichedError.totalAttempts = totalAttempts;
     enrichedError.originalError = error;
-    
+
     return enrichedError;
   }
 }

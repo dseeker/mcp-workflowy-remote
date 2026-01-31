@@ -85,7 +85,7 @@ export class StructuredLogger {
   private log(level: LogLevel, message: string, context?: LogContext, error?: Error): void {
     if (level <= this.level) {
       const entry = this.createLogEntry(level, message, context, error);
-      
+
       // In Cloudflare Workers, console methods are available
       switch (level) {
         case LogLevel.ERROR:
@@ -95,10 +95,10 @@ export class StructuredLogger {
           console.warn(JSON.stringify(entry));
           break;
         case LogLevel.INFO:
-          console.info(JSON.stringify(entry));
+          console.error(JSON.stringify(entry));
           break;
         case LogLevel.DEBUG:
-          console.log(JSON.stringify(entry));
+          console.error(JSON.stringify(entry));
           break;
       }
     }
@@ -171,10 +171,10 @@ export class StructuredLogger {
    * Log MCP operations
    */
   mcpOperation(
-    method: string, 
-    tool: string, 
-    duration: number, 
-    cached: boolean, 
+    method: string,
+    tool: string,
+    duration: number,
+    cached: boolean,
     context?: LogContext
   ): void {
     this.info(`MCP: ${method}/${tool}`, {
@@ -205,13 +205,13 @@ export class StructuredLogger {
    */
   child(childContext: LogContext): StructuredLogger {
     const childLogger = new StructuredLogger(this.level, this.environment);
-    
+
     // Override log method to include child context
     const originalCreateLogEntry = childLogger.createLogEntry.bind(childLogger);
     childLogger.createLogEntry = (level, message, context, error) => {
       return originalCreateLogEntry(level, message, { ...childContext, ...context }, error);
     };
-    
+
     return childLogger;
   }
 
@@ -245,9 +245,9 @@ export class StructuredLogger {
 export function createLogger(env: any): StructuredLogger {
   const environment = env.ENVIRONMENT || 'production';
   const isProduction = environment === 'production';
-  
+
   const level = isProduction ? LogLevel.INFO : LogLevel.DEBUG;
-  
+
   return new StructuredLogger(level, environment);
 }
 

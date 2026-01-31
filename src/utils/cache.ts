@@ -19,7 +19,7 @@ export interface CacheEntry<T = any> {
 
 export class WorkerCache {
   private cache: Cache | null = null;
-  
+
   constructor() {
     // Handle environments where caches might not be available (like tests)
     if (typeof caches !== 'undefined' && caches.default) {
@@ -31,17 +31,17 @@ export class WorkerCache {
    * Generate consistent cache key for requests
    */
   private generateCacheKey(
-    method: string, 
-    params: any, 
+    method: string,
+    params: any,
     credentials?: { username?: string }
   ): string {
     // Create deterministic key based on method, params, and user
-    const userHash = credentials?.username ? 
+    const userHash = credentials?.username ?
       this.simpleHash(credentials.username).toString() : 'anonymous';
-    
+
     const paramsString = JSON.stringify(params, Object.keys(params).sort());
     const paramsHash = this.simpleHash(paramsString);
-    
+
     return `workflowy:${method}:${userHash}:${paramsHash}`;
   }
 
@@ -71,26 +71,26 @@ export class WorkerCache {
    * Get cached response for MCP tool call
    */
   async get<T>(
-    method: string, 
-    params: any, 
+    method: string,
+    params: any,
     credentials?: { username?: string }
   ): Promise<T | null> {
     if (!this.cache) {
       return null; // No cache available
     }
-    
+
     try {
       const cacheKey = this.generateCacheKey(method, params, credentials);
       const cacheUrl = new URL(`https://cache.workflowy.local/${cacheKey}`);
-      
+
       const cachedResponse = await this.cache.match(new Request(cacheUrl.toString()));
-      
+
       if (!cachedResponse) {
         return null;
       }
 
       const cacheEntry: CacheEntry<T> = await cachedResponse.json();
-      
+
       if (!this.isValidCacheEntry(cacheEntry)) {
         // Cache expired, delete it
         await this.cache.delete(new Request(cacheUrl.toString()));
@@ -108,20 +108,20 @@ export class WorkerCache {
    * Store response in cache
    */
   async set<T>(
-    method: string, 
-    params: any, 
-    data: T, 
+    method: string,
+    params: any,
+    data: T,
     config: CacheConfig,
     credentials?: { username?: string }
   ): Promise<void> {
     if (!this.cache) {
       return; // No cache available
     }
-    
+
     try {
       const cacheKey = this.generateCacheKey(method, params, credentials);
       const cacheUrl = new URL(`https://cache.workflowy.local/${cacheKey}`);
-      
+
       const cacheEntry: CacheEntry<T> = {
         data,
         timestamp: Date.now(),
@@ -151,7 +151,7 @@ export class WorkerCache {
   shouldCache(method: string, params: any): boolean {
     // Cache read operations but not write operations
     const readMethods = ['list_nodes', 'search_nodes', 'get_node_by_id'];
-    
+
     if (!readMethods.includes(method)) {
       return false;
     }
@@ -172,31 +172,31 @@ export class WorkerCache {
     switch (method) {
       case 'list_nodes':
         // Cache list operations for 5 minutes
-        return { 
+        return {
           ttl: 300,
           tags: ['nodes', 'list'],
           staleWhileRevalidate: 60
         };
-      
+
       case 'search_nodes':
         // Cache search results for 2 minutes (more dynamic)
-        return { 
+        return {
           ttl: 120,
           tags: ['nodes', 'search'],
           staleWhileRevalidate: 30
         };
-      
+
       case 'get_node_by_id':
         // Cache individual node lookups for 10 minutes
-        return { 
+        return {
           ttl: 600,
           tags: ['nodes', 'single'],
           staleWhileRevalidate: 120
         };
-      
+
       default:
         // Default short cache for unknown read methods
-        return { 
+        return {
           ttl: 60,
           tags: ['default']
         };
@@ -210,7 +210,7 @@ export class WorkerCache {
     // Note: Cloudflare Workers Cache API doesn't support tag-based invalidation
     // In a full implementation, you'd need to track cache keys by tags
     // For now, we'll implement basic key tracking if needed
-    console.log('Cache invalidation requested for tags:', tags);
+    console.error('Cache invalidation requested for tags:', tags);
   }
 
   /**
@@ -219,7 +219,7 @@ export class WorkerCache {
   async clear(): Promise<void> {
     // Note: Cloudflare Workers Cache API doesn't have a clear-all method
     // This would require tracking all cache keys
-    console.log('Cache clear requested - not implemented in CF Workers');
+    console.error('Cache clear requested - not implemented in CF Workers');
   }
 }
 

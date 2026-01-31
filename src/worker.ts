@@ -63,7 +63,7 @@ class WorkflowyMCPServer {
     if (tool.inputSchema) {
       return z.object(tool.inputSchema);
     }
-    
+
     // Fallback schemas for tools missing inputSchema (like create_node)
     const fallbackSchemas: Record<string, z.ZodSchema> = {
       create_node: z.object({
@@ -72,26 +72,26 @@ class WorkflowyMCPServer {
         description: z.string().optional().describe("Description/note for the new node")
       })
     };
-    
+
     return fallbackSchemas[toolName] || z.object({});
   }
 
   private validateApiKey(apiKey: string | null, env: any): boolean {
     if (!apiKey) return false;
-    
+
     // Check against environment allowlist (comma-separated API keys)
     const allowedKeys = env.ALLOWED_API_KEYS?.split(',') || [];
-    
+
     // For local development, allow test-key
     if (apiKey === 'test-key' && !env.ALLOWED_API_KEYS) {
       return true;
     }
-    
+
     // Check if it's a user-generated token from /connector/setup
     if (apiKey.length > 20 && this.isValidUserToken(apiKey)) {
       return true;
     }
-    
+
     return allowedKeys.includes(apiKey);
   }
 
@@ -100,17 +100,17 @@ class WorkflowyMCPServer {
       // Decode the base64 token to validate format
       const decoded = atob(token);
       const parts = decoded.split(':');
-      
+
       // Should have format: username:password:timestamp
       if (parts.length === 3) {
         const timestamp = parseInt(parts[2]);
         const now = Date.now();
-        
+
         // Token should be less than 30 days old
         const thirtyDays = 30 * 24 * 60 * 60 * 1000;
         return (now - timestamp) < thirtyDays;
       }
-      
+
       return false;
     } catch {
       return false;
@@ -167,7 +167,7 @@ class WorkflowyMCPServer {
       if (this.isValidUserToken(token)) {
         const decoded = atob(token);
         const parts = decoded.split(':');
-        
+
         if (parts.length === 3) {
           return {
             username: parts[0],
@@ -175,7 +175,7 @@ class WorkflowyMCPServer {
           };
         }
       }
-      
+
       return null;
     } catch {
       return null;
@@ -236,7 +236,7 @@ class WorkflowyMCPServer {
   // Handle MCP JSON-RPC messages with caching and deduplication
   async handleJsonRpcRequest(request: JsonRpcRequest, env: any, headers?: Headers, logger?: any): Promise<JsonRpcResponse> {
     const requestLogger = logger || createLogger(env);
-    
+
     try {
       switch (request.method) {
         case "initialize":
@@ -263,7 +263,7 @@ class WorkflowyMCPServer {
             description: tool.description,
             inputSchema: this.convertZodToJsonSchema(tool.inputSchema)
           }));
-          
+
           return {
             jsonrpc: "2.0",
             id: request.id,
@@ -360,19 +360,19 @@ class WorkflowyMCPServer {
                 }
               );
             }
-            
+
             const duration = Date.now() - startTime;
             requestLogger.mcpOperation("tools/call", toolName, duration, cached, {
               requestId: request.id,
               paramsSize: JSON.stringify(validatedParams).length
             });
-            
+
             return {
               jsonrpc: "2.0",
               id: request.id,
               result
             };
-            
+
           } catch (error: any) {
             const duration = Date.now() - startTime;
             requestLogger.error(`Tool execution failed: ${toolName}`, error, {
@@ -381,11 +381,11 @@ class WorkflowyMCPServer {
               toolName,
               errorType: error.constructor.name
             });
-            
+
             // Enhanced error responses based on error type
             let errorCode = -32603; // Internal error
             let errorMessage = `Internal error: ${error.message}`;
-            
+
             if (error instanceof AuthenticationError) {
               errorCode = -32600; // Invalid request (auth issue)
               errorMessage = `Authentication failed: ${error.message}`;
@@ -399,7 +399,7 @@ class WorkflowyMCPServer {
               errorCode = -32603; // Internal error
               errorMessage = `Network error: ${error.message}`;
             }
-            
+
             return {
               jsonrpc: "2.0",
               id: request.id,
@@ -431,7 +431,7 @@ class WorkflowyMCPServer {
         requestId: request.id,
         method: request.method
       });
-      
+
       return {
         jsonrpc: "2.0",
         id: request.id,
@@ -468,7 +468,7 @@ class WorkflowyMCPServer {
         required: required.length > 0 ? required : undefined
       };
     }
-    
+
     return { type: "object" };
   }
 }
@@ -487,7 +487,7 @@ export default {
     // Handle incoming messages from the request body
     if (request.body) {
       const reader = request.body.getReader();
-      
+
       const processMessages = async () => {
         try {
           while (true) {
@@ -500,7 +500,7 @@ export default {
             for (const messageText of messages) {
               try {
                 const message = JSON.parse(messageText);
-                
+
                 if (message.jsonrpc === "2.0" && message.method) {
                   if (message.id !== undefined) {
                     // JSON-RPC Request (has id)
@@ -511,7 +511,7 @@ export default {
                     await writer.write(encoder.encode(sseData));
                   } else {
                     // JSON-RPC Notification (no id) - just acknowledge receipt
-                    console.log('Received SSE notification:', message.method);
+                    console.error('Received SSE notification:', message.method);
                     // Notifications don't require responses
                   }
                 }
@@ -557,17 +557,17 @@ export default {
     const requestId = generateRequestId();
     const logger = createLogger(env).forRequest(requestId, request.method, new URL(request.url).pathname);
     const startTime = Date.now();
-    
+
     const server = new WorkflowyMCPServer();
     const config = new ConfigManager(env);
-    
+
     logger.info('Request received', {
       method: request.method,
       url: request.url,
       userAgent: request.headers.get('User-Agent'),
       contentType: request.headers.get('Content-Type')
     });
-    
+
     // Validate API key for authenticated endpoints with logging
     const validateAuth = () => {
       const apiKey = request.headers.get('Authorization')?.replace('Bearer ', '') || null;
@@ -577,13 +577,13 @@ export default {
           apiKeyLength: apiKey?.length,
           environment: config.getEnvironment()
         });
-        
+
         return new Response(JSON.stringify({
           error: 'Unauthorized',
           message: 'Invalid or missing API key',
           environment: config.getEnvironment(),
           requestId
-        }), { 
+        }), {
           status: 401,
           headers: {
             'Content-Type': 'application/json',
@@ -630,27 +630,27 @@ export default {
       if (request.headers.get('Accept') === 'text/event-stream') {
         return this.handleSSE(request, server, env);
       }
-      
+
       return new Response('SSE endpoint requires text/event-stream Accept header', {
         status: 400,
         headers: { 'Access-Control-Allow-Origin': '*' }
       });
     }
-    
+
     // Health check endpoint with service status (unauthenticated)
     if (url.pathname === '/health') {
       try {
         // Basic service health check without credentials (worker uses OIDC authentication)
         const healthCheck = await workflowyClient.checkServiceHealth();
-        
+
         const responseTime = Date.now() - startTime;
         logger.info('Health check completed', {
           available: healthCheck.available,
           workflowyResponseTime: healthCheck.responseTime,
           totalResponseTime: responseTime
         });
-        
-        return new Response(JSON.stringify({ 
+
+        return new Response(JSON.stringify({
           status: healthCheck.available ? 'ok' : 'degraded',
           server: server.name,
           version: server.version,
@@ -665,7 +665,7 @@ export default {
           timestamp: new Date().toISOString()
         }), {
           status: healthCheck.available ? 200 : 503,
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'X-Request-ID': requestId,
             'Access-Control-Allow-Origin': '*'
@@ -673,8 +673,8 @@ export default {
         });
       } catch (error: any) {
         logger.error('Health check failed', error);
-        
-        return new Response(JSON.stringify({ 
+
+        return new Response(JSON.stringify({
           status: 'error',
           server: server.name,
           version: server.version,
@@ -683,7 +683,7 @@ export default {
           timestamp: new Date().toISOString()
         }), {
           status: 500,
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'X-Request-ID': requestId,
             'Access-Control-Allow-Origin': '*'
@@ -698,40 +698,40 @@ export default {
         try {
           const body = await request.json();
           const { username, password } = body;
-          
+
           if (!username || !password) {
             return new Response(JSON.stringify({
               error: 'Missing credentials',
               message: 'Both username and password are required'
             }), {
               status: 400,
-              headers: { 
+              headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
               }
             });
           }
-          
+
           // Validate credentials by attempting authentication
           try {
             const healthCheck = await workflowyClient.checkServiceHealth(username, password);
-            
+
             if (!healthCheck.available) {
               return new Response(JSON.stringify({
                 error: 'Invalid credentials',
                 message: 'Failed to authenticate with Workflowy'
               }), {
                 status: 401,
-                headers: { 
+                headers: {
                   'Content-Type': 'application/json',
                   'Access-Control-Allow-Origin': '*'
                 }
               });
             }
-            
+
             // Generate a secure token for this user session
             const userToken = btoa(`${username}:${password}:${Date.now()}`);
-            
+
             // In a production system, you'd store this securely
             // For now, we'll return it to be used as the API key
             return new Response(JSON.stringify({
@@ -740,12 +740,12 @@ export default {
               message: 'Credentials validated successfully',
               instructions: 'Use this token as your API key when configuring the Anthropic connector'
             }), {
-              headers: { 
+              headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
               }
             });
-            
+
           } catch (error: any) {
             logger.error('Credential validation failed', error);
             return new Response(JSON.stringify({
@@ -753,27 +753,27 @@ export default {
               message: 'Could not validate Workflowy credentials'
             }), {
               status: 401,
-              headers: { 
+              headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
               }
             });
           }
-          
+
         } catch (error: any) {
           return new Response(JSON.stringify({
             error: 'Invalid request',
             message: 'Could not parse request body'
           }), {
             status: 400,
-            headers: { 
+            headers: {
               'Content-Type': 'application/json',
               'Access-Control-Allow-Origin': '*'
             }
           });
         }
       }
-      
+
       // GET method returns setup instructions
       if (request.method === 'GET') {
         return new Response(JSON.stringify({
@@ -793,7 +793,7 @@ export default {
             }
           }
         }), {
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           }
@@ -918,7 +918,7 @@ export default {
       if (request.method === 'POST') {
         try {
           const body = await request.text();
-          
+
           // Handle both single messages and batched messages
           const messages = body.trim().split('\n').filter(line => line.trim());
           const responses: JsonRpcResponse[] = [];
@@ -970,10 +970,10 @@ export default {
             messageCount: messages.length,
             responseCount: responses.length
           });
-          
+
           if (responses.length === 1) {
             return new Response(JSON.stringify(responses[0]), {
-              headers: { 
+              headers: {
                 'Content-Type': 'application/json',
                 'X-Request-ID': requestId,
                 'X-Response-Time': duration.toString(),
@@ -982,7 +982,7 @@ export default {
             });
           } else {
             return new Response(responses.map(r => JSON.stringify(r)).join('\n'), {
-              headers: { 
+              headers: {
                 'Content-Type': 'application/json',
                 'X-Request-ID': requestId,
                 'X-Response-Time': duration.toString(),
@@ -990,11 +990,11 @@ export default {
               }
             });
           }
-          
+
         } catch (error: any) {
           const duration = Date.now() - startTime;
           logger.error('MCP request parsing failed', error, { duration });
-          
+
           return new Response(JSON.stringify({
             jsonrpc: "2.0",
             id: null,
@@ -1005,7 +1005,7 @@ export default {
             requestId
           }), {
             status: 400,
-            headers: { 
+            headers: {
               'Content-Type': 'application/json',
               'X-Request-ID': requestId,
               'Access-Control-Allow-Origin': '*'
@@ -1027,7 +1027,7 @@ export default {
             }
           }
         }), {
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           }
@@ -1244,7 +1244,7 @@ export default {
 
           // Generate authorization code
           const code = btoa(`oauth_${Date.now()}_${Math.random()}`).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
-          
+
           // Store in KV (only if available)
           if (env.OAUTH_KV) {
             const authState = {
@@ -1335,7 +1335,7 @@ export default {
 
           // Generate access token
           const access_token = `oauth_access_${btoa(`${Date.now()}_${Math.random()}`).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32)}`;
-          
+
           // Store token in KV (only if available)
           if (env.OAUTH_KV) {
             const now = Date.now();
@@ -1377,9 +1377,9 @@ export default {
         description: tool.description,
         inputSchema: server.convertZodToJsonSchema(tool.inputSchema)
       }));
-      
+
       return new Response(JSON.stringify({ tools: toolList }), {
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
         }
@@ -1389,7 +1389,7 @@ export default {
     // Default response for root path
     if (url.pathname === '/') {
       const serverConfig = config.getConfig();
-      
+
       return new Response(JSON.stringify({
         name: server.name,
         version: server.version,
@@ -1417,14 +1417,14 @@ export default {
           cors: serverConfig.cors.allowedOrigins.length < 5 ? 'Restricted' : 'Open'
         }
       }), {
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...config.getCorsHeaders()
         }
       });
     }
 
-    return new Response('Not Found', { 
+    return new Response('Not Found', {
       status: 404,
       headers: {
         'Access-Control-Allow-Origin': '*'

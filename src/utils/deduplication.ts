@@ -23,13 +23,13 @@ export class RequestDeduplicator {
    * Generate deduplication key from request parameters
    */
   private generateKey(method: string, params: any, credentials?: { username?: string }): string {
-    const userKey = credentials?.username ? 
+    const userKey = credentials?.username ?
       this.simpleHash(credentials.username).toString() : 'anonymous';
-    
+
     // Sort params to ensure consistent key generation
     const sortedParams = JSON.stringify(params, Object.keys(params).sort());
     const paramsHash = this.simpleHash(sortedParams);
-    
+
     return `${method}:${userKey}:${paramsHash}`;
   }
 
@@ -52,7 +52,7 @@ export class RequestDeduplicator {
   shouldDeduplicate(method: string, params: any): boolean {
     // Only deduplicate read operations
     const readMethods = ['list_nodes', 'search_nodes', 'get_node_by_id'];
-    
+
     if (!readMethods.includes(method)) {
       return false;
     }
@@ -82,25 +82,25 @@ export class RequestDeduplicator {
   ): Promise<T> {
     // Perform cleanup if needed (on-demand)
     this.cleanupIfNeeded();
-    
+
     // Skip deduplication if not applicable
     if (!this.shouldDeduplicate(method, params)) {
       return executor();
     }
 
     const key = this.generateKey(method, params, credentials);
-    
+
     // Check if there's already a pending request
     const existing = this.pendingRequests.get(key);
     if (existing && !this.isExpired(existing)) {
-      console.log(`Deduplicating request: ${key} (${existing.requestCount + 1} total)`);
+      console.error(`Deduplicating request: ${key} (${existing.requestCount + 1} total)`);
       existing.requestCount++;
       return existing.promise as Promise<T>;
     }
 
     // Create new pending request
     const promise = this.executeWithTracking(key, executor);
-    
+
     this.pendingRequests.set(key, {
       promise,
       timestamp: Date.now(),
@@ -150,12 +150,12 @@ export class RequestDeduplicator {
     }
 
     if (expiredKeys.length > 0) {
-      console.log(`Cleaned up ${expiredKeys.length} expired deduplication entries`);
+      console.error(`Cleaned up ${expiredKeys.length} expired deduplication entries`);
     }
-    
+
     this.lastCleanup = now;
   }
-  
+
   /**
    * Perform cleanup if enough time has passed since last cleanup
    */
@@ -171,7 +171,7 @@ export class RequestDeduplicator {
    */
   getStats(): { pendingRequests: number; totalRequestCount: number } {
     let totalRequestCount = 0;
-    
+
     for (const entry of this.pendingRequests.values()) {
       totalRequestCount += entry.requestCount;
     }
