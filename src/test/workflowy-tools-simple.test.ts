@@ -1,6 +1,10 @@
 // Simple unit tests for MCP Workflowy operations
-import { describe, it, expect, beforeAll } from "bun:test";
+import { describe, it, expect, beforeAll, afterEach } from "bun:test";
 import { mockWorkflowyResponses } from "./mocks/workflowy-responses";
+import { promises as fs } from "fs";
+import path from "path";
+import os from "os";
+import { convertToMarkdown, convertToPlainText } from "../utils/format-converters";
 
 // We'll test the tools by creating our own test versions that use mock clients directly
 // This avoids the complexity of module mocking
@@ -225,6 +229,66 @@ const createTestTools = (mockClient: any) => {
             content: [{
               type: "text",
               text: `Error retrieving node: ${error.message}`
+            }]
+          };
+        }
+      }
+    },
+
+    export_to_file: {
+      handler: async ({ filePath, query, nodeId, format = 'json', maxDepth, includeFields, username, password }:
+        { filePath: string, query?: string, nodeId?: string, format?: 'json' | 'markdown' | 'txt', maxDepth?: number, includeFields?: string[], username?: string, password?: string }) => {
+        try {
+          // Validate file path
+          const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
+
+          // Ensure directory exists
+          const dir = path.dirname(absolutePath);
+          await fs.mkdir(dir, { recursive: true });
+
+          // Fetch data based on input
+          let data;
+          let dataDescription;
+
+          if (nodeId) {
+            data = await mockClient.getNodeById(nodeId, username, password, maxDepth, includeFields);
+            dataDescription = `node ${nodeId}`;
+          } else if (query) {
+            data = await mockClient.search(query, username, password, undefined, maxDepth, includeFields);
+            dataDescription = `search results for "${query}" (${Array.isArray(data) ? data.length : 1} nodes)`;
+          } else {
+            data = await mockClient.getRootItems(username, password, maxDepth, includeFields);
+            dataDescription = `root nodes (${Array.isArray(data) ? data.length : 1} nodes)`;
+          }
+
+          // Convert to requested format
+          let content: string;
+          switch (format) {
+            case 'markdown':
+              content = convertToMarkdown(data);
+              break;
+            case 'txt':
+              content = convertToPlainText(data);
+              break;
+            default:
+              content = JSON.stringify(data, null, 2);
+          }
+
+          // Write to file
+          await fs.writeFile(absolutePath, content, 'utf-8');
+
+          const sizeKB = (content.length / 1024).toFixed(2);
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully exported ${dataDescription} to:\n${absolutePath}\nSize: ${sizeKB} KB\nFormat: ${format}`
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error exporting to file: ${error.message}`
             }]
           };
         }
@@ -1350,6 +1414,194 @@ describe('Workflowy MCP Tools', () => {
 
       expect(result.content[0].text).toContain('Error retrieving node');
       expect(result.content[0].text).toContain('Node not found');
+    });
+  });
+
+  describe('export_to_file', () => {
+    const testDir = path.join(os.tmpdir(), 'workflowy-test-exports');
+    
+    afterEach(async () => {
+      // Cleanup test files after each test
+      try {
+        await fs.rm(testDir, { recursive: true, force: true });
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    });
+
+    it('should export root nodes to JSON format', async () => {
+      const filePath = path.join(testDir, 'root-nodes.json');
+      
+      const result = await tools.export_to_file.handler({
+        filePath,
+        format: 'json',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully exported root nodes');
+      expect(result.content[0].text).toContain(filePath);
+      expect(result.content[0].text).toContain('Format: json');
+      
+      // Verify file exists and contains valid JSON
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const parsedData = JSON.parse(fileContent);
+      expect(Array.isArray(parsedData)).toBe(true);
+      expect(parsedData.length).toBeGreaterThan(0);
+    });
+
+    it('should export search results to JSON format', async () => {
+      const filePath = path.join(testDir, 'search-results.json');
+      
+      const result = await tools.export_to_file.handler({
+        filePath,
+        query: 'test',
+        format: 'json',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully exported search results for "test"');
+      expect(result.content[0].text).toContain(filePath);
+      
+      // Verify file exists
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const parsedData = JSON.parse(fileContent);
+      expect(Array.isArray(parsedData)).toBe(true);
+    });
+
+    it('should export specific node to JSON format', async () => {
+      const filePath = path.join(testDir, 'specific-node.json');
+      
+      const result = await tools.export_to_file.handler({
+        filePath,
+        nodeId: 'root-node-1',
+        format: 'json',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully exported node root-node-1');
+      expect(result.content[0].text).toContain(filePath);
+      
+      // Verify file exists
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const parsedData = JSON.parse(fileContent);
+      expect(parsedData.id).toBe('root-node-1');
+    });
+
+    it('should export to Markdown format with checkboxes', async () => {
+      const filePath = path.join(testDir, 'export.md');
+      
+      const result = await tools.export_to_file.handler({
+        filePath,
+        format: 'markdown',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully exported root nodes');
+      expect(result.content[0].text).toContain('Format: markdown');
+      
+      // Verify file exists and contains markdown bullets
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      expect(fileContent).toContain('- ');  // Should contain markdown list markers
+      expect(fileContent.length).toBeGreaterThan(0);
+    });
+
+    it('should export to plain text format', async () => {
+      const filePath = path.join(testDir, 'export.txt');
+      
+      const result = await tools.export_to_file.handler({
+        filePath,
+        format: 'txt',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully exported root nodes');
+      expect(result.content[0].text).toContain('Format: txt');
+      
+      // Verify file exists
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      expect(fileContent.length).toBeGreaterThan(0);
+    });
+
+    it('should respect maxDepth parameter', async () => {
+      const filePath = path.join(testDir, 'depth-limited.json');
+      
+      const result = await tools.export_to_file.handler({
+        filePath,
+        format: 'json',
+        maxDepth: 0,
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully exported');
+      
+      // Verify no children are included
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const parsedData = JSON.parse(fileContent);
+      if (parsedData[0] && parsedData[0].items) {
+        expect(parsedData[0].items).toHaveLength(0);
+      }
+    });
+
+    it('should respect includeFields parameter', async () => {
+      const filePath = path.join(testDir, 'limited-fields.json');
+      
+      const result = await tools.export_to_file.handler({
+        filePath,
+        format: 'json',
+        includeFields: ['id', 'name'],
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully exported');
+      
+      // Verify only specified fields are included
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const parsedData = JSON.parse(fileContent);
+      const firstNode = parsedData[0];
+      expect(firstNode.id).toBeDefined();
+      expect(firstNode.name).toBeDefined();
+      expect(firstNode.note).toBeUndefined();
+    });
+
+    it('should create directory if it does not exist', async () => {
+      const nestedPath = path.join(testDir, 'nested', 'deep', 'export.json');
+      
+      const result = await tools.export_to_file.handler({
+        filePath: nestedPath,
+        format: 'json',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Successfully exported');
+      
+      // Verify file and directories were created
+      const fileExists = await fs.access(nestedPath).then(() => true).catch(() => false);
+      expect(fileExists).toBe(true);
+    });
+
+    it('should handle export errors gracefully', async () => {
+      const errorClient = createMockClient('error');
+      const errorTools = createTestTools(errorClient);
+      
+      const result = await errorTools.export_to_file.handler({
+        filePath: path.join(testDir, 'error-export.json'),
+        format: 'json',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toContain('Error exporting to file');
+    });
+
+    it('should report file size in KB', async () => {
+      const filePath = path.join(testDir, 'size-test.json');
+      
+      const result = await tools.export_to_file.handler({
+        filePath,
+        format: 'json',
+        ...testCredentials
+      });
+
+      expect(result.content[0].text).toMatch(/Size: \d+\.\d+ KB/);
     });
   });
 });

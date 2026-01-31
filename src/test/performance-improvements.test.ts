@@ -407,21 +407,25 @@ describe('Structured Logging', () => {
   test('should format log entries correctly', () => {
     const logger = createLogger({ ENVIRONMENT: 'test' });
     
-    // Mock console methods to capture logs
-    const mockConsole = jest.spyOn(console, 'info').mockImplementation();
+    // Mock console.error since INFO level logs to console.error
+    const originalError = console.error;
+    let capturedLog = '';
+    console.error = (message: string) => {
+      capturedLog = message;
+    };
     
     logger.info('Test message', { key: 'value' });
     
-    expect(mockConsole).toHaveBeenCalled();
-    const logCall = mockConsole.mock.calls[0][0];
-    const logEntry = JSON.parse(logCall);
+    expect(capturedLog).toBeTruthy();
+    const logEntry = JSON.parse(capturedLog);
     
     expect(logEntry.level).toBe('INFO');
     expect(logEntry.message).toBe('Test message');
     expect(logEntry.context).toBeDefined();
     expect(logEntry.timestamp).toBeDefined();
     
-    mockConsole.mockRestore();
+    // Restore original console.error
+    console.error = originalError;
   });
 });
 

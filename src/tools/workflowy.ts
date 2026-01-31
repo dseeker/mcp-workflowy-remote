@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { workflowyClient } from "../workflowy/client.js";
 import log from "../utils/logger.js";
+import { promises as fs } from "fs";
+import path from "path";
+import { convertToMarkdown, convertToPlainText } from "../utils/format-converters.js";
 
 export const workflowyTools: Record<string, any> = {
   list_nodes: {
@@ -374,6 +377,83 @@ export const workflowyTools: Record<string, any> = {
           content: [{
             type: "text",
             text: `Error retrieving node: ${error.message}`
+          }]
+        };
+      }
+    }
+  },
+
+  export_to_file: {
+    description: "Export Workflowy data directly to a file on disk. Supports exporting by search query, specific node ID, or root nodes. This is more efficient than retrieving data and saving it separately.",
+    inputSchema: {
+      filePath: z.string().describe("Absolute file path where data will be written (e.g., /home/user/output.json or C:\\Users\\user\\output.md)"),
+      query: z.string().optional().describe("Search query to find nodes to export (omit if using nodeId or exporting root)"),
+      nodeId: z.string().optional().describe("Specific node ID to export (omit if using query or exporting root)"),
+      format: z.enum(['json', 'markdown', 'txt']).default('json').describe("Output format: 'json' (structured data), 'markdown' (formatted with checkboxes), or 'txt' (plain text)"),
+      maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, etc.)"),
+      includeFields: z.array(z.string()).optional().describe("Fields to include in JSON export (all formats include name, note, isCompleted, children)")
+    },
+    annotations: {
+        title: "Export Workflowy data to file",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+    },
+    handler: async ({ filePath, query, nodeId, format = 'json', maxDepth, includeFields, username, password }:
+        { filePath: string, query?: string, nodeId?: string, format?: 'json' | 'markdown' | 'txt', maxDepth?: number, includeFields?: string[], username?: string, password?: string },
+        client: typeof workflowyClient) => {
+      try {
+        // Validate file path
+        const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
+
+        // Ensure directory exists
+        const dir = path.dirname(absolutePath);
+        await fs.mkdir(dir, { recursive: true });
+
+        // Fetch data based on input
+        let data;
+        let dataDescription;
+
+        if (nodeId) {
+          data = await workflowyClient.getNodeById(nodeId, username, password, maxDepth, includeFields);
+          dataDescription = `node ${nodeId}`;
+        } else if (query) {
+          data = await workflowyClient.search(query, username, password, undefined, maxDepth, includeFields);
+          dataDescription = `search results for "${query}" (${Array.isArray(data) ? data.length : 1} nodes)`;
+        } else {
+          data = await workflowyClient.getRootItems(username, password, maxDepth, includeFields);
+          dataDescription = `root nodes (${Array.isArray(data) ? data.length : 1} nodes)`;
+        }
+
+        // Convert to requested format
+        let content: string;
+        switch (format) {
+          case 'markdown':
+            content = convertToMarkdown(data);
+            break;
+          case 'txt':
+            content = convertToPlainText(data);
+            break;
+          default:
+            content = JSON.stringify(data, null, 2);
+        }
+
+        // Write to file
+        await fs.writeFile(absolutePath, content, 'utf-8');
+
+        const sizeKB = (content.length / 1024).toFixed(2);
+        return {
+          content: [{
+            type: "text",
+            text: `Successfully exported ${dataDescription} to:\n${absolutePath}\nSize: ${sizeKB} KB\nFormat: ${format}`
+          }]
+        };
+      } catch (error: any) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error exporting to file: ${error.message}`
           }]
         };
       }
