@@ -29,7 +29,7 @@ export function convertToMarkdown(
 
   return nodes.map(node => {
     const idSuffix = options.includeIds ? ` [id: ${node.id}]` : '';
-    let result = `${indent}${node.name}${idSuffix}\n`;
+    let result = `${indent}- ${node.name}${idSuffix}\n`;
 
     if (node.note) {
       result += `${indent}  > ${node.note}\n`;
