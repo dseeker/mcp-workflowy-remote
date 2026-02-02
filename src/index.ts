@@ -8,7 +8,7 @@ import { z } from "zod"; // Or any validation library that supports Standard Sch
 
 const server = new FastMCP({
   name: "workflowy",
-  version: packageJson.version,
+  version: packageJson.version
 });
 
 dotenv.config();

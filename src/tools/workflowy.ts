@@ -346,6 +346,53 @@ export const workflowyTools: Record<string, any> = {
     }
   },
 
+  batch_move_nodes: {
+    description: "Move multiple nodes to different parents in a single atomic operation. More efficient than calling move_node multiple times and avoids timeout issues.",
+    inputSchema: {
+      moves: z.array(z.object({
+        id: z.string().describe("Node ID to move"),
+        newParentId: z.string().describe("New parent node ID"),
+        priority: z.number().optional().describe("Position within parent siblings (0 = first, omit for last)")
+      })).describe("Array of moves to execute")
+    },
+    annotations: {
+        title: "Move multiple nodes atomically",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false
+    },
+    handler: async ({ moves, username, password }:
+        { moves: Array<{id: string, newParentId: string, priority?: number}>, username?: string, password?: string },
+        client: typeof workflowyClient) => {
+      try {
+        const result = await workflowyClient.batchMoveNodes(moves, username, password);
+        
+        const successMessage = result.success 
+          ? `Successfully moved ${result.moved} nodes`
+          : `Partial failure: moved ${result.moved} of ${moves.length} nodes`;
+        
+        const errorDetails = result.errors && result.errors.length > 0
+          ? `\n\nFailed moves:\n${result.errors.map(e => `- Node ${e.id} → ${e.newParentId}: ${e.error}`).join('\n')}`
+          : '';
+        
+        return {
+          content: [{
+            type: "text",
+            text: `${successMessage}${errorDetails}\n\nResult: ${JSON.stringify(result, null, 2)}`
+          }]
+        };
+      } catch (error: any) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error moving nodes: ${error.message}`
+          }]
+        };
+      }
+    }
+  },
+
   get_node_by_id: {
     description: "Get a single node by its ID with full details",
     inputSchema: {

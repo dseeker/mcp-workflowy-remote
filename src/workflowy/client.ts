@@ -812,6 +812,93 @@ class WorkflowyClient {
     }
 
     /**
+     * Move multiple nodes to different parents in a single atomic operation
+     * This is more efficient than calling moveNode multiple times and avoids timeout issues
+     */
+    async batchMoveNodes(moves: Array<{id: string, newParentId: string, priority?: number}>, username?: string, password?: string) {
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { wf } = await this.createAuthenticatedClient(username, password);
+
+            try {
+                const doc = await wf.getDocument();
+                const movedNodes = [];
+                const notFoundNodes = [];
+                const invalidMoves = [];
+
+                // Collect all move operations in memory first
+                const moveOperations = [];
+                
+                for (const move of moves) {
+                    const { id, newParentId, priority } = move;
+                    
+                    // Find the node to move
+                    const node = this.findNodeById(doc.root.items, id);
+                    if (!node) {
+                        notFoundNodes.push({ id, newParentId, error: 'Node not found' });
+                        continue;
+                    }
+
+                    // Find the new parent
+                    const newParent = this.findNodeById(doc.root.items, newParentId);
+                    if (!newParent) {
+                        invalidMoves.push({ id, newParentId, error: 'Target parent not found' });
+                        continue;
+                    }
+
+                    // Store the move operation for later execution
+                    moveOperations.push({
+                        node,
+                        newParent,
+                        priority,
+                        id,
+                        newParentId
+                    });
+
+                    movedNodes.push({ id, newParentId, priority });
+                }
+
+                // If all nodes were not found, throw error
+                if (notFoundNodes.length === moves.length) {
+                    throw new NotFoundError(`None of the specified nodes were found: ${notFoundNodes.map(n => n.id).join(', ')}`);
+                }
+
+                // Execute all moves in a single batch
+                for (const op of moveOperations) {
+                    await op.node.move(op.newParent, op.priority);
+                }
+
+                // Single save operation for all moves (atomic)
+                if (doc.isDirty()) {
+                    await doc.save();
+                }
+
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('batchMoveNodes', duration, true, {
+                    moveCount: moves.length,
+                    successfulMoves: movedNodes.length,
+                    failedMoves: notFoundNodes.length + invalidMoves.length
+                });
+
+                return {
+                    success: true,
+                    moved: movedNodes.length,
+                    failed: notFoundNodes.length + invalidMoves.length,
+                    notFound: notFoundNodes.length > 0 ? notFoundNodes : undefined,
+                    errors: [...notFoundNodes, ...invalidMoves]
+                };
+            } catch (error: any) {
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('batchMoveNodes', duration, false, {
+                    moveCount: moves.length,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'batchMoveNodes');
+            }
+        }, RetryPresets.BATCH);
+    }
+
+    /**
      * Get a single node by its ID with retry logic
      */
     async getNodeById(id: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
