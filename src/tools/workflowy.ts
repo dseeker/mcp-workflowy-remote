@@ -20,12 +20,12 @@ const createTool = <T extends z.ZodRawShape>(
 
 export const workflowyTools: Record<string, any> = {
   list_nodes: createTool(
-    "List nodes in Workflowy. If a `parentId` is provided, it lists the child nodes of that parent. If omitted, it lists the root nodes.",
+    "List child nodes from a parent (or root if no parentId). EFFICIENCY: Use maxDepth=10 to get entire subtree in one call. Default maxDepth=0 returns only direct children.",
     {
-      parentId: z.string().optional().describe("Parent node ID to list children from (omit for root nodes)"),
-      maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include - Basic: id, name, note, isCompleted; Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount, s3File (default: id, name)"),
-      preview: z.number().optional().describe("Character limit for name/note fields to truncate long content (omit for full content)")
+      parentId: z.string().optional().describe("Parent node ID (omit for root nodes). Find IDs via search_nodes or list_nodes."),
+      maxDepth: z.number().optional().describe("Child levels to include: 0=none, 1=direct children, 2=grandchildren, 10=all. Default: 0. TIP: Use 10 for unknown depths."),
+      includeFields: z.array(z.string()).optional().describe("Fields to return. Default: ['id','name']. Add 'note', 'isCompleted' as needed. More fields = more tokens."),
+      preview: z.number().optional().describe("Truncate content to N chars. Use for summaries; omit for full content.")
     },
     async ({ parentId, maxDepth, includeFields, preview, username, password }) => {
       try {
@@ -43,13 +43,13 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   search_nodes: createTool(
-    "Search nodes in Workflowy",
+    "Search nodes by text across the entire tree. Use maxDepth=2 to include parent/child context with matches.",
     {
-      query: z.string().describe("Search text to find matching nodes"),
-      limit: z.number().optional().describe("Maximum results to return (default: 10)"),
-      maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include - Basic: id, name, note, isCompleted; Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic)"),
-      preview: z.number().optional().describe("Character limit for name/note fields to truncate long content (omit for full content)")
+      query: z.string().describe("Search text. Partial, case-insensitive match in names and notes."),
+      limit: z.number().optional().describe("Max results to return (default: 10)."),
+      maxDepth: z.number().optional().describe("Child levels: 0=node only, 1=children, 2=grandchildren, 10=all. Use 2 for context. Default: 0."),
+      includeFields: z.array(z.string()).optional().describe("Fields to return. Default: ['id','name']. Add fields sparingly."),
+      preview: z.number().optional().describe("Truncate to N chars. Use for summaries; omit for full content.")
     },
     async ({ query, limit, maxDepth, includeFields, preview, username, password }) => {
       try {
@@ -63,11 +63,11 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   create_node: createTool(
-    "Create a new node",
+    "Create a single node under a parent. For 2+ nodes, use batch_create_nodes (more efficient).",
     {
-      parentId: z.string().describe("Parent node ID where the node will be created"),
-      name: z.string().describe("Main node text (use for primary information)"),
-      note: z.string().optional().describe("Additional details (use for context, notes, or supplementary info)")
+      parentId: z.string().describe("Parent node ID. Find via search_nodes or list_nodes."),
+      name: z.string().describe("REQUIRED. Main content/headline visible in the outline. Keep concise. Examples: 'Buy groceries', 'Project deadline: March 15'."),
+      note: z.string().optional().describe("Optional details shown below the name (hidden by default). Supports the main content. Example: name='Buy groceries', note='Milk, eggs, bread'.")
     },
     async ({ parentId, name, note, username, password }) => {
       try {
@@ -81,13 +81,13 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   batch_create_nodes: createTool(
-    "Create multiple nodes under the same parent in a single atomic operation",
+    "Create multiple sibling nodes atomically (all succeed or none). PREFERRED for 2+ nodes vs multiple create_node calls.",
     {
-      parentId: z.string().describe("Parent node ID where all nodes will be created"),
+      parentId: z.string().describe("Parent node ID. Find via search_nodes or list_nodes."),
       nodes: z.array(z.object({
-        name: z.string().describe("Main node text (use for primary information)"),
-        note: z.string().optional().describe("Additional details (use for context, notes, or supplementary info)")
-      })).describe("Array of nodes to create")
+        name: z.string().describe("REQUIRED. Main content visible in outline. Examples: 'Task 1', 'Meeting notes'."),
+        note: z.string().optional().describe("Optional details shown below name (hidden by default). Supports the main content.")
+      })).describe("Array of {name, note?} objects to create as siblings under the parent.")
     },
     async ({ parentId, nodes, username, password }) => {
       try {
@@ -101,14 +101,14 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   batch_update_nodes: createTool(
-    "Update multiple nodes in a single atomic operation",
+    "Update multiple nodes atomically. PREFERRED for 2+ nodes vs multiple update_node calls.",
     {
       nodes: z.array(z.object({
-        id: z.string().describe("Node ID to update"),
-        name: z.string().optional().describe("Main node text (use for primary information)"),
-        note: z.string().optional().describe("Additional details (use for context, notes, or supplementary info)"),
-        isCompleted: z.boolean().optional().describe("Completion status (true = completed, false = active)")
-      })).describe("Array of nodes to update")
+        id: z.string().describe("REQUIRED. Node ID to update. Find via search_nodes or list_nodes."),
+        name: z.string().optional().describe("New main content. Omit if not changing."),
+        note: z.string().optional().describe("New details shown below name. Omit if not changing."),
+        isCompleted: z.boolean().optional().describe("Completion status: true=done, false=active. Use for batch completing items.")
+      })).describe("Array of {id, name?, note?, isCompleted?}. Include only fields to change.")
     },
     async ({ nodes, username, password }) => {
       try {
@@ -124,11 +124,11 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   update_node: createTool(
-    "Update an existing node",
+    "Update a single node. For 2+ nodes, use batch_update_nodes.",
     {
-      id: z.string().describe("Node ID to update"),
-      name: z.string().optional().describe("Main node text (use for primary information)"),
-      note: z.string().optional().describe("Additional details (use for context, notes, or supplementary info)")
+      id: z.string().describe("Node ID to update. Find via search_nodes or list_nodes."),
+      name: z.string().optional().describe("New main content. Omit if not changing."),
+      note: z.string().optional().describe("New details shown below name. Omit if not changing.")
     },
     async ({ id, name, note, username, password }) => {
       try {
@@ -142,9 +142,9 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   delete_node: createTool(
-    "Delete a node",
+    "Delete a single node. WARNING: Deletes all descendants (cascade). For 2+ nodes, use batch_delete_nodes.",
     {
-      id: z.string().describe("Node ID to delete")
+      id: z.string().describe("Node ID to delete. Find via search_nodes or list_nodes.")
     },
     async ({ id, username, password }) => {
       try {
@@ -158,9 +158,9 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   batch_delete_nodes: createTool(
-    "Delete multiple nodes in a single atomic operation. More efficient than calling delete_node multiple times and avoids timeout issues.",
+    "Delete multiple nodes atomically. PREFERRED for 2+ nodes vs multiple delete_node calls.",
     {
-      ids: z.array(z.string()).describe("Array of node IDs to delete")
+      ids: z.array(z.string()).describe("Array of node IDs to delete. WARNING: Deleting a parent removes all descendants.")
     },
     async ({ ids, username, password }) => {
       try {
@@ -176,10 +176,10 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   toggle_complete: createTool(
-    "Toggle completion status of a node",
+    "Toggle completion status of a node. For batch updates, use batch_update_nodes with isCompleted field.",
     {
-      id: z.string().describe("Node ID to toggle completion"),
-      completed: z.boolean().describe("Completion status (true = mark completed, false = mark active)")
+      id: z.string().describe("Node ID. Find via search_nodes or list_nodes."),
+      completed: z.boolean().describe("Target state: true=done (checked), false=active (unchecked). Sets directly; not a toggle.")
     },
     async ({ id, completed, username, password }) => {
       try {
@@ -193,11 +193,11 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   move_node: createTool(
-    "Move a node to a different parent with optional priority control",
+    "Move a single node to a new parent. For 2+ nodes, use batch_move_nodes.",
     {
-      id: z.string().describe("Node ID to move"),
-      newParentId: z.string().describe("New parent node ID"),
-      priority: z.number().optional().describe("Position within parent siblings (0 = first, omit for last)")
+      id: z.string().describe("Node ID to move. Find via search_nodes or list_nodes."),
+      newParentId: z.string().describe("Destination parent node ID. Find via list_nodes or search_nodes."),
+      priority: z.number().optional().describe("Position among siblings: 0=first, omit=last.")
     },
     async ({ id, newParentId, priority, username, password }) => {
       try {
@@ -212,13 +212,13 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   batch_move_nodes: createTool(
-    "Move multiple nodes to different parents in a single atomic operation. More efficient than calling move_node multiple times and avoids timeout issues.",
+    "Move multiple nodes atomically. PREFERRED for 2+ nodes vs multiple move_node calls.",
     {
       moves: z.array(z.object({
-        id: z.string().describe("Node ID to move"),
-        newParentId: z.string().describe("New parent node ID"),
-        priority: z.number().optional().describe("Position within parent siblings (0 = first, omit for last)")
-      })).describe("Array of moves to execute")
+        id: z.string().describe("REQUIRED. Node ID to move."),
+        newParentId: z.string().describe("REQUIRED. Destination parent node ID."),
+        priority: z.number().optional().describe("Position among siblings: 0=first, omit=last.")
+      })).describe("Array of {id, newParentId, priority?} moves to execute.")
     },
     async ({ moves, username, password }) => {
       try {
@@ -234,12 +234,12 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   get_node_by_id: createTool(
-    "Get a single node by its ID with full details",
+    "Get a node by ID with optional subtree. CRITICAL: Use maxDepth=10 to get entire subtree in ONE call. Avoid multiple calls for related nodes - get the top node with maxDepth instead.",
     {
-      id: z.string().describe("Node ID to retrieve"),
-      maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include - Basic: id, name, note, isCompleted; Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic)"),
-      preview: z.number().optional().describe("Character limit for name/note fields to truncate long content (omit for full content)")
+      id: z.string().describe("Node ID to retrieve. Find via search_nodes or list_nodes."),
+      maxDepth: z.number().optional().describe("Child levels: 0=node only, 1=children, 2=grandchildren, 10=all. CRITICAL: Use 10 for complete subtree. Default: 0."),
+      includeFields: z.array(z.string()).optional().describe("Fields to return. Default: ['id','name']. Add fields sparingly."),
+      preview: z.number().optional().describe("Truncate to N chars. Use for summaries; omit for full content.")
     },
     async ({ id, maxDepth, includeFields, preview, username, password }) => {
       try {
@@ -253,16 +253,16 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   export_to_file: createTool(
-    "Export Workflowy data directly to a file on disk. Supports exporting by search query, specific node ID, or root nodes. For markdown/txt exports, can optionally download file attachments to a subfolder and update links.",
+    "Export nodes to a local file (JSON/Markdown/Text). Workflow: Use search_nodes first to preview, then export with matching parameters.",
     {
-      filePath: z.string().describe("Absolute file path where data will be written (e.g., /home/user/output.json or C:\\Users\\user\\output.md)"),
-      query: z.string().optional().describe("Search query to find nodes to export (omit if using nodeId or exporting root)"),
-      nodeId: z.string().optional().describe("Specific node ID to export (omit if using query or exporting root)"),
-      format: z.enum(['json', 'markdown', 'txt']).default('json').describe("Output format: 'json' (structured data), 'markdown' (indented outline), or 'txt' (plain text)"),
-      maxDepth: z.number().optional().describe("How many levels deep to include children (0=none, 1=direct children, etc.)"),
-      includeFields: z.array(z.string()).optional().describe("Fields to include in JSON export (all formats include name, note, isCompleted, children, s3File)"),
-      includeIds: z.boolean().optional().describe("Include node IDs in markdown/txt exports"),
-      downloadAttachments: z.boolean().optional().describe("Download file attachments and save them next to the exported file (only for markdown/txt formats). Creates a subfolder with the attachments.")
+      filePath: z.string().describe("Absolute file path. Examples: '/home/user/backup.json', 'C:\\Users\\Me\\notes.md'. Directory created if needed."),
+      query: z.string().optional().describe("Search text to export matching nodes (omit if using nodeId or root)."),
+      nodeId: z.string().optional().describe("Specific node ID to export (omit if using query or root)."),
+      format: z.enum(['json', 'markdown', 'txt']).default('json').describe("Export format. JSON=structured (best for processing). Markdown=readable outline. TXT=plain text."),
+      maxDepth: z.number().optional().describe("Child levels: 0=none, 1=children, 10=all. Use 10 for complete export."),
+      includeFields: z.array(z.string()).optional().describe("Fields for JSON export. Default includes name, note, isCompleted, children."),
+      includeIds: z.boolean().optional().describe("Include node IDs in markdown/txt exports."),
+      downloadAttachments: z.boolean().optional().describe("Download attachments to subfolder (markdown/txt only).")
     },
     async ({ filePath, query, nodeId, format = 'json', maxDepth, includeFields, includeIds, downloadAttachments, username, password }) => {
       try {
@@ -350,12 +350,12 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   get_file_url: createTool(
-    "Get a signed URL to download a file attachment from a Workflowy node. The URL is temporary and can be used to fetch the actual file content.",
+    "Get temporary download URL for file attachments. For saving to disk, use download_file instead (handles download automatically).",
     {
-      nodeId: z.string().describe("Node ID that contains the file attachment"),
-      userId: z.union([z.string(), z.number()]).optional().describe("User ID (optional - will be fetched automatically if not provided)"),
-      maxWidth: z.number().optional().describe("Maximum width for image preview (default: 800)"),
-      maxHeight: z.number().optional().describe("Maximum height for image preview (default: 800)")
+      nodeId: z.string().describe("Node ID with attachment. Find via search_nodes with includeFields=['s3File']."),
+      userId: z.union([z.string(), z.number()]).optional().describe("User ID (auto-fetched if omitted)."),
+      maxWidth: z.number().optional().describe("Max image width (default: 800)."),
+      maxHeight: z.number().optional().describe("Max image height (default: 800).")
     },
     async ({ nodeId, userId, maxWidth, maxHeight, username, password }) => {
       try {
@@ -370,14 +370,14 @@ export const workflowyTools: Record<string, any> = {
   ),
 
   download_file: createTool(
-    "Download a file attachment from a Workflowy node directly to a local file path. This tool gets the signed URL and downloads the file in one operation. Includes automatic retry with URL refresh if the download fails.",
+    "Download file attachment to local disk. Preferred over get_file_url for direct downloads (includes auto-retry).",
     {
-      nodeId: z.string().describe("Node ID that contains the file attachment"),
-      filePath: z.string().describe("Absolute local file path where the file should be saved (e.g., C:\\Users\\user\\Downloads\\image.png)"),
-      userId: z.union([z.string(), z.number()]).optional().describe("User ID (optional - will be fetched automatically if not provided)"),
-      maxWidth: z.number().optional().describe("Maximum width for image preview (default: 800)"),
-      maxHeight: z.number().optional().describe("Maximum height for image preview (default: 800)"),
-      timeout: z.number().optional().describe("Download timeout in milliseconds (default: 30000ms = 30 seconds)")
+      nodeId: z.string().describe("Node ID with attachment. Find via search_nodes with includeFields=['s3File']."),
+      filePath: z.string().describe("Absolute path to save file. Examples: '/home/user/image.png', 'C:\\Users\\Me\\file.pdf'. Directory created if needed."),
+      userId: z.union([z.string(), z.number()]).optional().describe("User ID (auto-fetched if omitted)."),
+      maxWidth: z.number().optional().describe("Max image width (default: 800)."),
+      maxHeight: z.number().optional().describe("Max image height (default: 800)."),
+      timeout: z.number().optional().describe("Timeout in ms (default: 30000 = 30s).")
     },
     async ({ nodeId, filePath, userId, maxWidth, maxHeight, timeout, username, password }) => {
       const maxRetries = 3;

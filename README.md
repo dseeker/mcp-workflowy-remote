@@ -108,25 +108,27 @@ npm start
 ## 🛠️ Available Operations
 
 ### Core Operations
-1. **list_nodes** - List nodes with intelligent metadata hydration
-2. **search_nodes** - Search with advanced filtering and context enrichment
-3. **get_node_by_id** - Get single node with full relationship details
-4. **create_node** - Create new nodes with smart positioning
-5. **batch_create_nodes** - Create multiple nodes atomically in a single operation
-6. **update_node** - Modify existing nodes with validation
-7. **batch_update_nodes** - Update multiple nodes atomically in a single operation
-8. **delete_node** - Remove nodes safely
-9. **move_node** - Reorganize nodes with priority control
-10. **toggle_complete** - Mark completion with timestamp tracking
-11. **get_file_url** - Get signed URLs to download file attachments
-12. **download_file** - Download file attachments directly to a local path
-13. **export_to_file** - Export Workflowy data to JSON, Markdown, or text files (with optional attachment download)
+1. **list_nodes** - Browse hierarchies starting from root or a parent. Use `maxDepth=10` to fetch entire subtree in one call instead of multiple requests.
+2. **search_nodes** - Find nodes by text content across the entire tree. Combine with `maxDepth=2` to include parent/child context.
+3. **get_node_by_id** - Get a specific node by ID with optional subtree. **Use `maxDepth=10` to fetch all descendants in ONE call** - avoid multiple calls for nodes in the same hierarchy.
+4. **create_node** - Create a single child node under a parent. For multiple nodes, use `batch_create_nodes` instead.
+5. **batch_create_nodes** - **Preferred** - Create multiple sibling nodes atomically. More efficient than multiple `create_node` calls.
+6. **update_node** - Update a single node's properties. For multiple nodes, use `batch_update_nodes` instead.
+7. **batch_update_nodes** - **Preferred** - Update multiple nodes (names, notes, completion status) atomically in one operation.
+8. **delete_node** - Delete a single node. **Warning**: Deletes all descendants (cascade). For multiple deletions, use `batch_delete_nodes`.
+9. **batch_delete_nodes** - **Preferred** - Delete multiple nodes atomically. More efficient and handles missing nodes gracefully.
+10. **move_node** - Move a single node to a new parent. For multiple moves, use `batch_move_nodes` instead.
+11. **batch_move_nodes** - **Preferred** - Move multiple nodes atomically in a single operation.
+12. **toggle_complete** - Mark a single node complete/incomplete. For batch updates, use `batch_update_nodes` with `isCompleted` field.
+13. **get_file_url** - Get temporary download URL for file attachments. For direct downloads, use `download_file` instead.
+14. **download_file** - **Preferred** - Download file attachments directly to a local path with automatic retry.
+15. **export_to_file** - Export Workflowy data to JSON, Markdown, or text files with optional attachment download.
 
 ### Enhanced Capabilities
-- **Smart Field Selection**: Use `includeFields` to request specific metadata
+- **Smart Field Selection**: Use `includeFields` to request specific metadata. Default is `['id', 'name']` - add fields sparingly.
 - **Context-Aware Responses**: Automatic hydration of parentName, hierarchy, siblings
-- **Performance Optimization**: Only fetches requested metadata to minimize API calls
-- **Batch Operations**: Update or create multiple nodes in a single API call for efficiency
+- **Performance Optimization**: Use `maxDepth=10` to fetch deep hierarchies in one call instead of multiple round-trips
+- **Batch Operations**: **Always prefer batch operations** when working with 2+ nodes - single round-trip, atomic, timeout-safe
 - **Workflowy-Native Patterns**: Operations aligned with real Workflowy workflows
 
 ## 💡 Example Usage
@@ -150,6 +152,95 @@ The MCP server enables natural AI interactions with your Workflowy data:
 - **Research Organization**: *"Search for all research notes on AI and create a summary with source links"*
 - **Meeting Prep**: *"List all action items from last week's meetings and their current status"*
 - **File Management**: *"Find all nodes with image attachments and download them"*
+
+## 🤖 LLM Usage Best Practices
+
+This section helps AI assistants use the Workflowy MCP tools effectively:
+
+### NAME vs NOTE Field Guidelines
+
+| Use NAME for | Use NOTE for |
+|--------------|--------------|
+| Main content, title, headline | Long explanations, details |
+| Bullet point visible in outline | Context that supports the name |
+| Something always visible | Hidden by default, expandable |
+| Concise summary | Supplementary information |
+
+**Analogy**: NAME = Email subject line (always visible, concise), NOTE = Email body (details you see after opening)
+
+### Efficiency Patterns
+
+**❌ Anti-Pattern: Multiple calls for hierarchy**
+```javascript
+// DON'T: Multiple calls for nodes in same hierarchy
+get_node_by_id({ id: "parent-1" })      // Gets parent
+get_node_by_id({ id: "child-1" })       // Separate call
+get_node_by_id({ id: "child-2" })       // Separate call
+```
+
+**✅ Best Practice: Single call with depth**
+```javascript
+// DO: One call with maxDepth to get entire subtree
+get_node_by_id({ id: "parent-1", maxDepth: 10 })  // Gets parent + all descendants
+```
+
+**❌ Anti-Pattern: Multiple single operations**
+```javascript
+// DON'T: Multiple individual calls
+create_node({ parentId: "x", name: "Task 1" })
+create_node({ parentId: "x", name: "Task 2" })
+create_node({ parentId: "x", name: "Task 3" })
+```
+
+**✅ Best Practice: Batch operations**
+```javascript
+// DO: Single batch call
+batch_create_nodes({
+  parentId: "x",
+  nodes: [
+    { name: "Task 1" },
+    { name: "Task 2" },
+    { name: "Task 3" }
+  ]
+})
+```
+
+### Field Selection Guide
+
+**Default fields**: `['id', 'name']` - Use for most operations  
+**Add `'note'`**: When you need the note content  
+**Add `'isCompleted'`**: When working with task status  
+**Add `'s3File'`**: When looking for file attachments  
+
+**Token efficiency**: More fields = more tokens. Request only what you need.
+
+### Finding Node IDs
+
+Always discover node IDs before operating on them:
+
+```javascript
+// Step 1: Search or list to find the node
+const results = await search_nodes({ query: "My Project" })
+// Returns: [{ id: "abc-123", name: "My Project" }]
+
+// Step 2: Use the ID for operations
+await get_node_by_id({ id: "abc-123", maxDepth: 10 })
+await create_node({ parentId: "abc-123", name: "New Task" })
+```
+
+### Common Workflows
+
+**Exploring an unknown hierarchy:**
+1. `list_nodes({})` - Get root nodes
+2. `get_node_by_id({ id: "interesting-node", maxDepth: 10 })` - Get entire subtree
+
+**Batch updating tasks:**
+1. `search_nodes({ query: "Q1 Goals", includeFields: ["id", "name", "isCompleted"] })`
+2. `batch_update_nodes({ nodes: [...] })` - Update all matches at once
+
+**Exporting with context:**
+1. `search_nodes({ query: "Project X", maxDepth: 2 })` - Preview what will be exported
+2. `export_to_file({ query: "Project X", format: "markdown", filePath: "/path/to/export.md" })
 
 ### Working with File Attachments
 Workflowy supports attaching files and images to nodes. The MCP server provides tools to access this metadata and download the files:
