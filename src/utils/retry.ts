@@ -70,13 +70,8 @@ export class RetryManager {
         // Calculate delay with exponential backoff and jitter
         const delay = this.calculateDelay(attempt, finalConfig, error);
 
-        console.error(`[RETRY] Attempt ${attempt}/${finalConfig.maxAttempts} after ${delay}ms delay:`, {
-          error: error.message,
-          status: error.status,
-          retryable: error.retryable,
-          overloaded: error.overloaded,
-          errorType: error.constructor.name
-        });
+        // Retry logging removed to avoid breaking MCP stdio protocol
+        // Retry attempt: ${attempt}/${finalConfig.maxAttempts}, delay: ${delay}ms
 
         await this.sleep(delay);
       }

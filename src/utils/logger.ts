@@ -1,36 +1,58 @@
 // Logger utility that works in both Node.js and Cloudflare Worker environments
+// IMPORTANT: Logs ONLY go to local files, never to stdout/stderr (to avoid breaking MCP stdio protocol)
+
+import { promises as fs } from 'fs';
+import path from 'path';
 
 // Check if we're in a Cloudflare Worker environment
 const isCloudflareWorker = typeof globalThis !== 'undefined' && 'caches' in globalThis;
 
-// Simple console-based logger for environments that don't support winston
-const simpleLogger = {
-    info: (message: string, meta?: any) => {
-        const logMessage = meta ? `${message} ${JSON.stringify(meta)}` : message;
-        console.error(`[INFO] ${logMessage}`);
+// File-based simple logger that never writes to console
+const fileLogger = {
+    logFilePath: '',
+    
+    init: async () => {
+        if (!fileLogger.logFilePath) {
+            const projectRoot = process.env.MCP_LOG_PATH || process.cwd();
+            const logsDir = path.join(projectRoot, 'logs');
+            await fs.mkdir(logsDir, { recursive: true });
+            fileLogger.logFilePath = path.join(logsDir, 'simple.log');
+        }
     },
+    
+    write: async (level: string, message: string, meta?: any) => {
+        try {
+            await fileLogger.init();
+            const timestamp = new Date().toISOString();
+            const metaStr = meta ? ` ${JSON.stringify(meta)}` : '';
+            const logLine = `[${timestamp}] [${level}] ${message}${metaStr}\n`;
+            await fs.appendFile(fileLogger.logFilePath, logLine, 'utf-8');
+        } catch {
+            // Silently fail - never write to console
+        }
+    },
+    
+    info: (message: string, meta?: any) => fileLogger.write('INFO', message, meta),
     error: (message: string, error?: Error | any, meta?: any) => {
         const errorMeta = error instanceof Error
             ? { error: error.message, stack: error.stack, ...meta }
             : { error, ...meta };
-        const logMessage = `${message} ${JSON.stringify(errorMeta)}`;
-        console.error(`[ERROR] ${logMessage}`);
+        return fileLogger.write('ERROR', message, errorMeta);
     },
-    warn: (message: string, meta?: any) => {
-        const logMessage = meta ? `${message} ${JSON.stringify(meta)}` : message;
-        console.error(`[WARN] ${logMessage}`);
-    },
-    debug: (message: string, meta?: any) => {
-        const logMessage = meta ? `${message} ${JSON.stringify(meta)}` : message;
-        console.error(`[DEBUG] ${logMessage}`);
-    }
+    warn: (message: string, meta?: any) => fileLogger.write('WARN', message, meta),
+    debug: (message: string, meta?: any) => fileLogger.write('DEBUG', message, meta)
 };
 
 let logger: any;
 
 if (isCloudflareWorker) {
-    // Use simple console logging in Cloudflare Worker
-    logger = simpleLogger;
+    // In Cloudflare Worker, use no-op logger since file system isn't available
+    logger = {
+        info: () => {},
+        error: () => {},
+        warn: () => {},
+        debug: () => {}
+    };
 } else {
     try {
         // Try to import winston for Node.js environments
@@ -67,7 +89,7 @@ if (isCloudflareWorker) {
             ),
             defaultMeta: { service: 'mcp-workflowy-remote' },
             transports: [
-                // Write all logs to simple files (no rotation)
+                // Write all logs to simple files (no rotation) - NO CONSOLE TRANSPORT
                 new winston.transports.File({
                     filename: path.join(logsDir, 'error.log'),
                     level: 'error'
@@ -78,54 +100,47 @@ if (isCloudflareWorker) {
             ],
         });
 
-        // If in development, also log to console
-        if (process.env.NODE_ENV === 'development' || process.env.MCP_LOG_CONSOLE === 'true') {
-            winstonLogger.add(new winston.transports.Console({
-                format: winston.format.combine(
-                    winston.format.colorize(),
-                    winston.format.simple()
-                )
-            }));
-        }
+        // NOTE: Console transport is intentionally disabled to avoid breaking MCP stdio protocol
+        // All logs go only to files
 
         logger = winstonLogger;
     } catch (error) {
-        // Fallback to simple console logging if winston is not available
-        logger = simpleLogger;
+        // Fallback to file-based logger if winston is not available
+        logger = fileLogger;
     }
 }
 
 // Helper functions for common logging patterns
 export const log = {
     info: (message: string, meta?: any) => {
-        if (logger.info) {
+        if (logger?.info) {
             logger.info(message, meta);
         } else {
-            simpleLogger.info(message, meta);
+            fileLogger.info(message, meta);
         }
     },
     error: (message: string, error?: Error | any, meta?: any) => {
         const errorMeta = error instanceof Error
             ? { error: error.message, stack: error.stack, ...meta }
             : { error, ...meta };
-        if (logger.error) {
+        if (logger?.error) {
             logger.error(message, errorMeta);
         } else {
-            simpleLogger.error(message, error, meta);
+            fileLogger.error(message, error, meta);
         }
     },
     warn: (message: string, meta?: any) => {
-        if (logger.warn) {
+        if (logger?.warn) {
             logger.warn(message, meta);
         } else {
-            simpleLogger.warn(message, meta);
+            fileLogger.warn(message, meta);
         }
     },
     debug: (message: string, meta?: any) => {
-        if (logger.debug) {
+        if (logger?.debug) {
             logger.debug(message, meta);
         } else {
-            simpleLogger.debug(message, meta);
+            fileLogger.debug(message, meta);
         }
     },
 
@@ -137,10 +152,10 @@ export const log = {
             executionTime: executionTime ? `${executionTime}ms` : undefined,
             category: 'mcp-call'
         };
-        if (logger.info) {
+        if (logger?.info) {
             logger.info('MCP Tool Called', logData);
         } else {
-            simpleLogger.info('MCP Tool Called', logData);
+            fileLogger.info('MCP Tool Called', logData);
         }
     },
 
@@ -151,10 +166,10 @@ export const log = {
             responseSize: responseSize ? `${responseSize} characters` : undefined,
             category: 'workflowy-api'
         };
-        if (logger.debug) {
+        if (logger?.debug) {
             logger.debug('Workflowy API Request', logData);
         } else {
-            simpleLogger.debug('Workflowy API Request', logData);
+            fileLogger.debug('Workflowy API Request', logData);
         }
     },
 
@@ -168,10 +183,10 @@ export const log = {
             fullResponseSize: responseSize,
             category: 'workflowy-response'
         };
-        if (logger.debug) {
+        if (logger?.debug) {
             logger.debug('Workflowy API Response', logData);
         } else {
-            simpleLogger.debug('Workflowy API Response', logData);
+            fileLogger.debug('Workflowy API Response', logData);
         }
     },
 
@@ -182,10 +197,10 @@ export const log = {
             ...additionalMetrics,
             category: 'performance'
         };
-        if (logger.info) {
+        if (logger?.info) {
             logger.info('Performance Metric', logData);
         } else {
-            simpleLogger.info('Performance Metric', logData);
+            fileLogger.info('Performance Metric', logData);
         }
     },
 
@@ -197,23 +212,13 @@ export const log = {
             percentage: Math.round((tokenCount / limit) * 100),
             category: 'token-limit'
         };
-        if (logger.warn) {
+        if (logger?.warn) {
             logger.warn('Token Limit Warning', logData);
         } else {
-            simpleLogger.warn('Token Limit Warning', logData);
+            fileLogger.warn('Token Limit Warning', logData);
         }
     }
 };
-
-// Log the initialization if we have a proper logger
-if (!isCloudflareWorker && typeof process !== 'undefined' && process.cwd) {
-    log.info('Logger initialized', {
-        environment: isCloudflareWorker ? 'cloudflare-worker' : 'nodejs',
-        hasWinston: !!logger.info,
-        level: process.env.MCP_LOG_LEVEL || 'info',
-        console: process.env.NODE_ENV === 'development' || process.env.MCP_LOG_CONSOLE === 'true'
-    });
-}
 
 export { logger };
 export default log;

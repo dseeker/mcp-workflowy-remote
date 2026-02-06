@@ -1499,9 +1499,9 @@ describe('Workflowy MCP Tools', () => {
       expect(result.content[0].text).toContain('Successfully exported root nodes');
       expect(result.content[0].text).toContain('Format: markdown');
       
-      // Verify file exists and contains markdown bullets
+      // Verify file exists and contains markdown headers
       const fileContent = await fs.readFile(filePath, 'utf-8');
-      expect(fileContent).toContain('- ');  // Should contain markdown list markers
+      expect(fileContent).toContain('# ');  // Should contain markdown header markers
       expect(fileContent.length).toBeGreaterThan(0);
     });
 

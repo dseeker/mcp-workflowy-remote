@@ -30,7 +30,8 @@
     "logs:advanced": "node scripts/collect-logs-advanced.js",
     "logs:historical": "node scripts/collect-logs-advanced.js --mode historical",
     "logs:realtime": "node scripts/collect-logs-advanced.js --mode realtime",
-    "logs:both": "node scripts/collect-logs-advanced.js --mode both"
+    "logs:both": "node scripts/collect-logs-advanced.js --mode both",
+    "setup:local-workflowy": "node scripts/install-local-workflowy.js"
   },
   "engines": {
     "node": ">=18"
@@ -69,7 +70,7 @@
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^0.0.8",
-    "@modelcontextprotocol/sdk": "^1.11.0",
+    "@modelcontextprotocol/sdk": "^1.21.2",
     "@valibot/to-json-schema": "^1.0.0",
     "cloudflare-client": "^0.3.2",
     "dotenv": "^16.5.0",
@@ -77,7 +78,8 @@
     "fastmcp": "^1.23.2",
     "node-fetch": "^3.3.2",
     "winston": "^3.17.0",
-    "workflowy": "^2.8.1"
+    "workflowy": "^2.8.3",
+    "zod": "^3.25.76"
   },
   "overrides": {
     "cross-spawn": ">=7.0.5",

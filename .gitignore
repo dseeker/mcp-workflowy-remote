@@ -153,3 +153,5 @@ workflowy-structure-map.md
 docs/LOG-COLLECTION.md
 scripts/collect-logs.js
 scripts/collect-logs-advanced.js
+/webtools
+.claude/settings.local.json

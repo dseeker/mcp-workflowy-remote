@@ -4,6 +4,10 @@ import { retryManager, RetryPresets } from '../utils/retry.js';
 import { createLogger } from '../utils/structured-logger.js';
 import { fileCache } from '../utils/file-cache.js';
 
+// Default dimensions for attachment URL resolution
+const DEFAULT_ATTACHMENT_WIDTH = 800;
+const DEFAULT_ATTACHMENT_HEIGHT = 800;
+
 // Caching options interface
 export interface CacheOptions {
   forceRefresh?: boolean; // Skip cache and force fresh data
@@ -154,11 +158,18 @@ class WorkflowyClient {
                 // Check if metadata fields are requested
                 const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
                 
+                // Get userId if attachment URL resolution is needed
+                let userId: number | undefined;
+                if (includeFields?.includes('attachmentUrl')) {
+                    const initData = await client.getInitializationData();
+                    userId = initData.mainProjectTreeInfo.ownerId;
+                }
+                
                 const result = [];
                 for (let i = 0; i < rootItems.length; i++) {
                     const item = rootItems[i];
                     const workflowyList = needsMetadata ? doc.root.items[i] : undefined;
-                    const filteredItem = await this.createFilteredNode(item, maxDepth, includeFields, 0, previewLength, workflowyList);
+                    const filteredItem = await this.createFilteredNode(item, maxDepth, includeFields, 0, previewLength, workflowyList, client, userId);
                     result.push(filteredItem);
                 }
                 
@@ -199,12 +210,19 @@ class WorkflowyClient {
                 // Check if metadata fields are requested
                 const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
                 
+                // Get userId if attachment URL resolution is needed
+                let userId: number | undefined;
+                if (includeFields?.includes('attachmentUrl')) {
+                    const initData = await client.getInitializationData();
+                    userId = initData.mainProjectTreeInfo.ownerId;
+                }
+                
                 // Apply filtering (always filter now, with defaults if not specified)
                 const result = [];
                 for (let i = 0; i < parent.items.length; i++) {
                     const item = parent.items[i];
                     const workflowyList = needsMetadata ? item : undefined;
-                    const filteredItem = await this.createFilteredNode(item.toJson(), maxDepth, includeFields, 0, previewLength, workflowyList);
+                    const filteredItem = await this.createFilteredNode(item.toJson(), maxDepth, includeFields, 0, previewLength, workflowyList, client, userId);
                     result.push(filteredItem);
                 }
                 
@@ -239,7 +257,9 @@ class WorkflowyClient {
         includeFields?: string[], 
         currentDepth: number = 0, 
         previewLength?: number,
-        workflowyList?: any
+        workflowyList?: any,
+        client?: Client,
+        userId?: number
     ): Promise<any> {
         const defaultFields = ['id', 'name', 'note', 'isCompleted'];
         const fieldsToInclude = includeFields || defaultFields;
@@ -262,7 +282,7 @@ class WorkflowyClient {
 
         // Hydrate metadata fields if requested and workflowyList is provided
         if (workflowyList) {
-            await this.hydrateMetadataFields(filtered, fieldsToInclude, workflowyList);
+            await this.hydrateMetadataFields(filtered, fieldsToInclude, workflowyList, client, userId);
         }
         
         // Handle children based on depth
@@ -271,7 +291,9 @@ class WorkflowyClient {
             for (const child of node.items) {
                 const childFiltered = await this.createFilteredNode(
                     child, maxDepth, includeFields, currentDepth + 1, previewLength, 
-                    workflowyList ? workflowyList.items.find((item: any) => item.id === child.id) : undefined
+                    workflowyList ? workflowyList.items.find((item: any) => item.id === child.id) : undefined,
+                    client,
+                    userId
                 );
                 filtered.items.push(childFiltered);
             }
@@ -289,7 +311,7 @@ class WorkflowyClient {
         const metadataFields = [
             'parentId', 'parentName', 'priority', 'lastModifiedAt', 'completedAt',
             'isMirror', 'originalId', 'isSharedViaUrl', 'sharedUrl', 'hierarchy', 
-            'siblings', 'siblingCount'
+            'siblings', 'siblingCount', 's3File', 'hasAttachment', 'attachmentUrl'
         ];
         return metadataFields.includes(field);
     }
@@ -297,7 +319,7 @@ class WorkflowyClient {
     /**
      * Hydrate metadata fields from Workflowy List object
      */
-    private async hydrateMetadataFields(filtered: any, fieldsToInclude: string[], workflowyList: any): Promise<void> {
+    private async hydrateMetadataFields(filtered: any, fieldsToInclude: string[], workflowyList: any, client?: Client, userId?: number): Promise<void> {
         try {
             // Parent information
             if (fieldsToInclude.includes('parentId') && workflowyList.parent) {
@@ -345,6 +367,38 @@ class WorkflowyClient {
             }
             if (fieldsToInclude.includes('siblingCount')) {
                 filtered.siblingCount = workflowyList.parent ? workflowyList.parent.items.length : 0;
+            }
+
+            // File attachment metadata
+            if (workflowyList.s3File) {
+                if (fieldsToInclude.includes('hasAttachment')) {
+                    filtered.hasAttachment = true;
+                }
+
+                if (fieldsToInclude.includes('s3File')) {
+                    filtered.s3File = workflowyList.s3File;
+                }
+
+                // Auto-resolve attachment URL if requested
+                if (fieldsToInclude.includes('attachmentUrl') && client && userId) {
+                    try {
+                        const fileResult = await client.getFileUrl(
+                            userId,
+                            workflowyList.id,
+                            DEFAULT_ATTACHMENT_WIDTH,
+                            DEFAULT_ATTACHMENT_HEIGHT
+                        );
+                        if (fileResult) {
+                            filtered.attachmentUrl = fileResult.url;
+                        }
+                    } catch (urlError: any) {
+                        this.structuredLogger.warn('Failed to get attachment URL', {
+                            nodeId: workflowyList.id,
+                            error: urlError.message
+                        });
+                        filtered.attachmentUrl = null;
+                    }
+                }
             }
         } catch (error: any) {
             this.structuredLogger.warn('Failed to hydrate some metadata fields', { 
@@ -396,13 +450,20 @@ class WorkflowyClient {
             const maxResults = limit || 10;
             const depth = maxDepth ?? 0;
             
-            const { wf } = await this.createAuthenticatedClient(username, password);
+            const { wf, client } = await this.createAuthenticatedClient(username, password);
             
             try {
                 const doc = await wf.getDocument();
                 
                 // Check if metadata fields are requested
                 const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
+                
+                // Get userId if attachment URL resolution is needed
+                let userId: number | undefined;
+                if (includeFields?.includes('attachmentUrl')) {
+                    const initData = await client.getInitializationData();
+                    userId = initData.mainProjectTreeInfo.ownerId;
+                }
                 
                 const items = doc.root.items;
                 let results = [];
@@ -417,7 +478,7 @@ class WorkflowyClient {
                         // Create filtered node with depth and field control and metadata hydration
                         const fullNode = current!.toJson();
                         const workflowyList = needsMetadata ? current : undefined;
-                        const nodeJson = await this.createFilteredNode(fullNode, depth, includeFields, 0, previewLength, workflowyList);
+                        const nodeJson = await this.createFilteredNode(fullNode, depth, includeFields, 0, previewLength, workflowyList, client, userId);
                         results.push(nodeJson);
                     }
                     if (current!.items && results.length < maxResults) {
@@ -812,6 +873,79 @@ class WorkflowyClient {
     }
 
     /**
+     * Delete multiple nodes in a single atomic operation
+     * This is more efficient than calling deleteNode multiple times and avoids timeout issues
+     */
+    async batchDeleteNodes(ids: string[], username?: string, password?: string) {
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { wf } = await this.createAuthenticatedClient(username, password);
+
+            try {
+                const doc = await wf.getDocument();
+                const deletedNodes = [];
+                const notFoundNodes = [];
+
+                // Collect all delete operations in memory first
+                const deleteOperations = [];
+
+                for (const id of ids) {
+                    // Find the node to delete
+                    const node = this.findNodeById(doc.root.items, id);
+                    if (!node) {
+                        notFoundNodes.push(id);
+                        continue;
+                    }
+
+                    // Store the delete operation for later execution
+                    deleteOperations.push({
+                        node,
+                        id
+                    });
+
+                    deletedNodes.push(id);
+                }
+
+                // If all nodes were not found, throw error
+                if (notFoundNodes.length === ids.length) {
+                    throw new NotFoundError(`None of the specified nodes were found: ${notFoundNodes.join(', ')}`);
+                }
+
+                // Execute all deletes in a single batch
+                for (const op of deleteOperations) {
+                    await op.node.delete();
+                }
+
+                // Single save operation for all deletes (atomic)
+                if (doc.isDirty()) {
+                    await doc.save();
+                }
+
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('batchDeleteNodes', duration, true, {
+                    deleteCount: ids.length,
+                    successfulDeletes: deletedNodes.length,
+                    failedDeletes: notFoundNodes.length
+                });
+
+                return {
+                    success: true,
+                    deleted: deletedNodes.length,
+                    failed: notFoundNodes.length,
+                    notFound: notFoundNodes.length > 0 ? notFoundNodes : undefined
+                };
+            } catch (error: any) {
+                const duration = Date.now() - startTime;
+                this.structuredLogger.workflowyApi('batchDeleteNodes', duration, false, {
+                    deleteCount: ids.length,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'batchDeleteNodes');
+            }
+        }, RetryPresets.BATCH);
+    }
+
+    /**
      * Move multiple nodes to different parents in a single atomic operation
      * This is more efficient than calling moveNode multiple times and avoids timeout issues
      */
@@ -904,7 +1038,7 @@ class WorkflowyClient {
     async getNodeById(id: string, username?: string, password?: string, maxDepth: number = 0, includeFields?: string[], previewLength?: number) {
         return retryManager.withRetry(async () => {
             const startTime = Date.now();
-            const { wf } = await this.createAuthenticatedClient(username, password);
+            const { wf, client } = await this.createAuthenticatedClient(username, password);
 
             try {
                 const doc = await wf.getDocument();
@@ -917,11 +1051,18 @@ class WorkflowyClient {
 
                 // Check if metadata fields are requested
                 const needsMetadata = includeFields?.some(field => this.isMetadataField(field));
+                
+                // Get userId if attachment URL resolution is needed
+                let userId: number | undefined;
+                if (includeFields?.includes('attachmentUrl')) {
+                    const initData = await client.getInitializationData();
+                    userId = initData.mainProjectTreeInfo.ownerId;
+                }
 
                 // Convert to JSON and apply filtering with metadata hydration
                 const nodeJson = node.toJson();
                 const workflowyList = needsMetadata ? node : undefined;
-                const result = await this.createFilteredNode(nodeJson, maxDepth, includeFields, 0, previewLength, workflowyList);
+                const result = await this.createFilteredNode(nodeJson, maxDepth, includeFields, 0, previewLength, workflowyList, client, userId);
 
                 const duration = Date.now() - startTime;
                 this.structuredLogger.workflowyApi('getNodeById', duration, true, {
@@ -1030,6 +1171,59 @@ class WorkflowyClient {
                 error: error.message
             };
         });
+    }
+
+    /**
+     * Get the authenticated user's ID
+     */
+    async getUserId(username?: string, password?: string): Promise<number> {
+        const { client } = await this.createAuthenticatedClient(username, password);
+        const initData = await client.getInitializationData();
+        return initData.mainProjectTreeInfo.ownerId;
+    }
+
+    /**
+     * Get a signed URL for a file attachment
+     * @param userId The user ID
+     * @param nodeId The node ID containing the file
+     * @param maxWidth Maximum width for image preview
+     * @param maxHeight Maximum height for image preview
+     * @param username Optional username for authentication
+     * @param password Optional password for authentication
+     * @returns Object containing the signed URL for the file
+     */
+    async getFileUrl(
+        userId: number | string,
+        nodeId: string,
+        maxWidth: number = DEFAULT_ATTACHMENT_WIDTH,
+        maxHeight: number = DEFAULT_ATTACHMENT_HEIGHT,
+        username?: string,
+        password?: string
+    ): Promise<{ url: string }> {
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { client } = await this.createAuthenticatedClient(username, password);
+
+            try {
+                const result = await client.getFileUrl(userId, nodeId, maxWidth, maxHeight);
+
+                this.structuredLogger.workflowyApi('getFileUrl', Date.now() - startTime, true, {
+                    userId,
+                    nodeId,
+                    maxWidth,
+                    maxHeight
+                });
+
+                return result;
+            } catch (error: any) {
+                this.structuredLogger.workflowyApi('getFileUrl', Date.now() - startTime, false, {
+                    userId,
+                    nodeId,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'getFileUrl');
+            }
+        }, RetryPresets.STANDARD);
     }
 }
 

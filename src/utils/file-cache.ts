@@ -39,7 +39,7 @@ export class FileCache {
     try {
       await fs.mkdir(this.cacheDir, { recursive: true });
     } catch (error) {
-      console.warn(`Failed to create cache directory: ${error}`);
+      // Cache directory creation error - silently fail to avoid breaking MCP stdio protocol
     }
   }
 
@@ -115,7 +115,7 @@ export class FileCache {
 
       return entry;
     } catch (error) {
-      console.warn(`Failed to read cache for ${nodeId}: ${error}`);
+      // Cache read error - silently fail
       return null;
     }
   }
@@ -147,7 +147,7 @@ export class FileCache {
 
       await fs.writeFile(filePath, JSON.stringify(entry, null, 2), 'utf-8');
     } catch (error) {
-      console.warn(`Failed to write cache for ${nodeId}: ${error}`);
+      // Cache write error - silently fail
     }
   }
 
@@ -191,7 +191,7 @@ export class FileCache {
         )
       );
     } catch (error) {
-      console.warn(`Failed to clear cache: ${error}`);
+      // Cache clear error - silently fail
     }
   }
 
@@ -274,7 +274,7 @@ export class FileCache {
 
       return deletedCount;
     } catch (error) {
-      console.warn(`Failed to cleanup cache: ${error}`);
+      // Cache cleanup error - silently fail
       return 0;
     }
   }

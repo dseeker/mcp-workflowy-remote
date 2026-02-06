@@ -16,6 +16,9 @@ This MCP server provides the following tools to interact with your Workflowy:
 8. **delete_node** - Delete a node from your Workflowy
 9. **move_node** - Move a node to a different parent with optional priority control
 10. **get_node_by_id** - Get a single node by its ID with full details and filtering options
+11. **get_file_url** - Get a signed URL to download file attachments from Workflowy nodes
+12. **download_file** - Download file attachments directly to a local file path
+13. **export_to_file** - Export Workflowy data directly to a file on disk (JSON, Markdown, or text)
 
 ## Enhanced List & Search Features
 
@@ -99,6 +102,7 @@ Choose which fields to include in the response for performance optimization:
 - `sharedUrl` - Shared URL (if shared)
 - `hierarchy` - Array of parent names from root to node
 - `siblings` - Array of sibling nodes with basic info
+- `s3File` - File attachment metadata (if present)
 
 **Performance Notes:**
 - Basic fields are lightweight and fast
@@ -128,6 +132,27 @@ search_nodes({
   includeFields: ["id", "name", "note", "isCompleted", "hierarchy", "siblings", "lastModifiedAt"],
   limit: 5
 })
+
+// Include file attachment metadata
+search_nodes({
+  query: "image",
+  includeFields: ["id", "name", "s3File"]
+})
+
+// Response with s3File:
+[
+  {
+    "id": "node-1",
+    "name": "Screenshot",
+    "s3File": {
+      "isFile": true,
+      "fileName": "screenshot.png",
+      "fileType": "image/png",
+      "imageOriginalWidth": 1024,
+      "imageOriginalHeight": 569
+    }
+  }
+]
 
 // Result structure (basic fields only):
 [
@@ -242,7 +267,7 @@ Metadata fields enable powerful workflows:
 **Parameters:**
 - `parentId` (optional): Parent node ID
 - `maxDepth` (optional): How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)
-- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: id, name)
+- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount, s3File (default: id, name)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
 
 ### 2. search_nodes - Search nodes by text with advanced filtering
@@ -251,7 +276,7 @@ Metadata fields enable powerful workflows:
 - `query` (required): Search query
 - `limit` (optional): Maximum number of results to return
 - `maxDepth` (optional): How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)
-- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)
+- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount, s3File (default: all basic fields)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
 
 ### 3. create_node - Create new node
@@ -351,8 +376,130 @@ batch_update_nodes({
 **Parameters:**
 - `id` (required): Node ID to retrieve
 - `maxDepth` (optional): How many levels deep to include children (0=none, 1=direct children, 2=grandchildren, etc. default: 0)
-- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount (default: all basic fields)
+- `includeFields` (optional): Fields to include in response. Basic: id, name, note, isCompleted. Metadata: parentId, parentName, priority, lastModifiedAt, completedAt, isMirror, originalId, isSharedViaUrl, sharedUrl, hierarchy, siblings, siblingCount, s3File (default: all basic fields)
 - `preview` (optional): Truncate content fields (name, note) to specified number of characters
+
+### 11. get_file_url - Get signed URL for file attachment
+
+Get a temporary signed URL to download a file attachment from a Workflowy node. The URL expires after a short time and can be used to fetch the actual file content.
+
+**Parameters:**
+- `nodeId` (required): Node ID that contains the file attachment
+- `userId` (optional): User ID (will be fetched automatically if not provided)
+- `maxWidth` (optional): Maximum width for image preview (default: 800)
+- `maxHeight` (optional): Maximum height for image preview (default: 800)
+
+**Example:**
+```javascript
+// Get file URL for a node with attachment
+get_file_url({
+  nodeId: "abc-123-def-456",
+  maxWidth: 1024,
+  maxHeight: 1024
+})
+```
+
+**Response:**
+```
+Signed URL for file attachment:
+https://workflowy.com/file-proxy/file/...
+
+Note: This URL is temporary and will expire. Use it to download the file content.
+```
+
+### 12. download_file - Download file attachment to local path
+
+Download a file attachment from a Workflowy node directly to a local file path. This tool combines getting the signed URL and downloading the file in one operation.
+
+**Features:**
+- **Automatic Retry**: Retries up to 3 times if the download fails (e.g., URL expired)
+- **URL Refresh**: Gets a fresh signed URL on each retry attempt
+- **Exponential Backoff**: Waits longer between retries for network errors
+- **Directory Creation**: Automatically creates directories if they don't exist
+
+**Parameters:**
+- `nodeId` (required): Node ID that contains the file attachment
+- `filePath` (required): Absolute local file path where the file should be saved
+- `userId` (optional): User ID (will be fetched automatically if not provided)
+- `maxWidth` (optional): Maximum width for image preview (default: 800)
+- `maxHeight` (optional): Maximum height for image preview (default: 800)
+
+**Example:**
+```javascript
+// Download a file attachment
+download_file({
+  nodeId: "abc-123-def-456",
+  filePath: "C:\\Users\\user\\Downloads\\workflowy-attachment.png",
+  maxWidth: 1024,
+  maxHeight: 1024
+})
+```
+
+**Response:**
+```
+File downloaded successfully:
+Path: C:\Users\user\Downloads\workflowy-attachment.png
+Size: 84.21 KB
+URL: https://workflowy.com/file-proxy/file/...
+```
+
+**Retry Behavior:**
+- If the URL expires (HTTP 403), automatically gets a fresh URL and retries
+- If network errors occur, waits 500ms, 1000ms, 1500ms between retries
+- Reports number of retries in the response if multiple attempts were needed
+
+### 13. export_to_file - Export Workflowy data to file
+
+Export Workflowy data directly to a file on disk. Supports exporting by search query, specific node ID, or root nodes. For markdown/txt exports, can optionally download file attachments to a subfolder and update links.
+
+**Parameters:**
+- `filePath` (required): Absolute file path where data will be written
+- `query` (optional): Search query to find nodes to export
+- `nodeId` (optional): Specific node ID to export
+- `format` (optional): Output format - 'json', 'markdown', or 'txt' (default: 'json')
+- `maxDepth` (optional): How many levels deep to include children
+- `includeFields` (optional): Fields to include in JSON export
+- `includeIds` (optional): Include node IDs in markdown/txt exports
+- `downloadAttachments` (optional): Download file attachments and save them next to the exported file (only for markdown/txt formats). Creates a subfolder with the attachments.
+
+**Examples:**
+
+Basic export:
+```javascript
+export_to_file({
+  filePath: "/home/user/workflowy-backup.md",
+  query: "project",
+  format: "markdown",
+  maxDepth: 2,
+  includeIds: true
+})
+```
+
+Export with attachments:
+```javascript
+export_to_file({
+  filePath: "C:\\Users\\user\\Documents\\workflowy-export.md",
+  query: "project",
+  format: "markdown",
+  downloadAttachments: true
+})
+// Creates:
+// - workflowy-export.md
+// - workflowy-export_attachments/
+//   - nodeid_image1.png
+//   - nodeid_document.pdf
+```
+
+**Attachment Download Behavior:**
+- Only works with `markdown` and `txt` formats (ignored for `json`)
+- Creates a subfolder named `{filename}_attachments/`
+- Downloads all file attachments found in the exported nodes
+- Updates markdown links to point to local files:
+  - Images: `![filename](relative/path/to/file)`
+  - Files: `[File: filename - relative/path/to/file]`
+- Files are named with node ID prefix to avoid conflicts: `{nodeId}_{safeFileName}`
+})
+```
 
 ## MCP Protocol Endpoints
 

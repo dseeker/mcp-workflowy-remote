@@ -99,7 +99,7 @@ export class WorkerCache {
 
       return cacheEntry.data;
     } catch (error) {
-      console.warn('Cache retrieval failed:', error);
+      // Cache error logging removed to avoid breaking MCP stdio protocol
       return null;
     }
   }
@@ -140,7 +140,7 @@ export class WorkerCache {
 
       await this.cache.put(new Request(cacheUrl.toString()), response);
     } catch (error) {
-      console.warn('Cache storage failed:', error);
+      // Cache error logging removed to avoid breaking MCP stdio protocol
       // Don't throw - caching failures shouldn't break the application
     }
   }
@@ -210,7 +210,7 @@ export class WorkerCache {
     // Note: Cloudflare Workers Cache API doesn't support tag-based invalidation
     // In a full implementation, you'd need to track cache keys by tags
     // For now, we'll implement basic key tracking if needed
-    console.error('Cache invalidation requested for tags:', tags);
+    // Cache invalidation logging removed to avoid breaking MCP stdio protocol
   }
 
   /**
@@ -219,7 +219,7 @@ export class WorkerCache {
   async clear(): Promise<void> {
     // Note: Cloudflare Workers Cache API doesn't have a clear-all method
     // This would require tracking all cache keys
-    console.error('Cache clear requested - not implemented in CF Workers');
+    // Cache clear logging removed to avoid breaking MCP stdio protocol
   }
 }
 

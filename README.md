@@ -75,7 +75,7 @@ claude mcp add-json workflowy-remote '{
 claude mcp list
 ```
 
-**Expected output:** `workflowy-remote: https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp (HTTP) - ✓ Connected`
+**Expected output:** `workflowy-remote: https://mcp-workflowy-remote.daniel-bca.workers.dev/mcp (HTTP) - [OK] Connected`
 
 ### Option 3: Local Server
 
@@ -103,6 +103,7 @@ npm start
 - **🛠️ Complete CRUD Operations**: Create, read, update, delete, and move nodes
 - **📊 Smart Defaults**: Optimized for performance with minimal token usage
 - **🔍 Advanced Search**: Filter by depth, fields, preview length, and result limits
+- **📎 File Attachments**: Download and manage file attachments (images, documents) from Workflowy nodes
 
 ## 🛠️ Available Operations
 
@@ -117,6 +118,9 @@ npm start
 8. **delete_node** - Remove nodes safely
 9. **move_node** - Reorganize nodes with priority control
 10. **toggle_complete** - Mark completion with timestamp tracking
+11. **get_file_url** - Get signed URLs to download file attachments
+12. **download_file** - Download file attachments directly to a local path
+13. **export_to_file** - Export Workflowy data to JSON, Markdown, or text files (with optional attachment download)
 
 ### Enhanced Capabilities
 - **Smart Field Selection**: Use `includeFields` to request specific metadata
@@ -145,6 +149,53 @@ The MCP server enables natural AI interactions with your Workflowy data:
 - **Daily Planning**: *"Create a daily agenda from my 'Today' list and move completed items to 'Done'"*
 - **Research Organization**: *"Search for all research notes on AI and create a summary with source links"*
 - **Meeting Prep**: *"List all action items from last week's meetings and their current status"*
+- **File Management**: *"Find all nodes with image attachments and download them"*
+
+### Working with File Attachments
+Workflowy supports attaching files and images to nodes. The MCP server provides tools to access this metadata and download the files:
+
+```javascript
+// Search for nodes with file attachments
+{ "query": "image", "includeFields": ["id", "name", "s3File"] }
+
+// Response includes s3File metadata:
+{
+  "id": "abc-123",
+  "name": "Project Screenshot",
+  "s3File": {
+    "isFile": true,
+    "fileName": "screenshot.png",
+    "fileType": "image/png",
+    "imageOriginalWidth": 1024,
+    "imageOriginalHeight": 569
+  }
+}
+
+// Get a signed URL to download the file
+{ "nodeId": "abc-123", "maxWidth": 800, "maxHeight": 800 }
+
+// The response provides a temporary signed URL:
+// https://workflowy.com/file-proxy/file/...
+```
+
+### Export with Attachments
+When exporting to Markdown or text, you can automatically download file attachments:
+
+```javascript
+// Export to markdown with attachments downloaded
+{ 
+  "filePath": "C:\\Users\\user\\Documents\\export.md",
+  "query": "project",
+  "format": "markdown",
+  "downloadAttachments": true
+}
+
+// This creates:
+// - export.md (with updated links to local files)
+// - export_attachments/
+//   - nodeid_filename1.png
+//   - nodeid_filename2.pdf
+```
 
 ### Smart Field Selection
 ```javascript
@@ -153,6 +204,9 @@ The MCP server enables natural AI interactions with your Workflowy data:
 
 // Request enhanced context for analysis
 { "includeFields": ["name", "parentName", "hierarchy", "siblings", "priority"] }
+
+// Include file attachment metadata
+{ "includeFields": ["id", "name", "s3File"] }
 ```
 
 ### Authentication Examples

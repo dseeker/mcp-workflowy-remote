@@ -93,7 +93,7 @@ export class RequestDeduplicator {
     // Check if there's already a pending request
     const existing = this.pendingRequests.get(key);
     if (existing && !this.isExpired(existing)) {
-      console.error(`Deduplicating request: ${key} (${existing.requestCount + 1} total)`);
+      // Deduplication logging removed to avoid breaking MCP stdio protocol
       existing.requestCount++;
       return existing.promise as Promise<T>;
     }
@@ -150,7 +150,7 @@ export class RequestDeduplicator {
     }
 
     if (expiredKeys.length > 0) {
-      console.error(`Cleaned up ${expiredKeys.length} expired deduplication entries`);
+      // Cleanup logging removed to avoid breaking MCP stdio protocol
     }
 
     this.lastCleanup = now;
