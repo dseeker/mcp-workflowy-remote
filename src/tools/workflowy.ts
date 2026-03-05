@@ -303,7 +303,7 @@ export const workflowyTools: Record<string, any> = {
           const nodes = Array.isArray(data) ? data : [data];
           const downloadedAttachments: Array<{nodeId: string, fileName: string, localPath: string, url?: string}> = [];
           async function processNodeAttachments(node: any) {
-            if (node.s3File && node.s3File.isFile) {
+            if (node.s3File) {
               const fileName = node.s3File.fileName;
               const safeFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
               const localPath = path.join(attachmentsDir, `${node.id}_${safeFileName}`);

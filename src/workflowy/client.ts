@@ -370,26 +370,26 @@ class WorkflowyClient {
             }
 
             // File attachment metadata
-            if (workflowyList.s3File) {
+            if (workflowyList.hasFile) {
                 if (fieldsToInclude.includes('hasAttachment')) {
                     filtered.hasAttachment = true;
                 }
 
                 if (fieldsToInclude.includes('s3File')) {
-                    filtered.s3File = workflowyList.s3File;
+                    filtered.s3File = workflowyList.file;
                 }
 
                 // Auto-resolve attachment URL if requested
                 if (fieldsToInclude.includes('attachmentUrl') && client && userId) {
                     try {
-                        const fileResult = await client.getFileUrl(
+                        const url = await client.getFilePreviewUrl(
                             userId,
                             workflowyList.id,
                             DEFAULT_ATTACHMENT_WIDTH,
                             DEFAULT_ATTACHMENT_HEIGHT
                         );
-                        if (fileResult) {
-                            filtered.attachmentUrl = fileResult.url;
+                        if (url) {
+                            filtered.attachmentUrl = url;
                         }
                     } catch (urlError: any) {
                         this.structuredLogger.warn('Failed to get attachment URL', {
@@ -1183,14 +1183,14 @@ class WorkflowyClient {
     }
 
     /**
-     * Get a signed URL for a file attachment
+     * Get a signed URL for a file attachment preview
      * @param userId The user ID
      * @param nodeId The node ID containing the file
      * @param maxWidth Maximum width for image preview
      * @param maxHeight Maximum height for image preview
      * @param username Optional username for authentication
      * @param password Optional password for authentication
-     * @returns Object containing the signed URL for the file
+     * @returns Object containing the signed URL for the file preview
      */
     async getFileUrl(
         userId: number | string,
@@ -1205,7 +1205,7 @@ class WorkflowyClient {
             const { client } = await this.createAuthenticatedClient(username, password);
 
             try {
-                const result = await client.getFileUrl(userId, nodeId, maxWidth, maxHeight);
+                const url = await client.getFilePreviewUrl(userId, nodeId, maxWidth, maxHeight);
 
                 this.structuredLogger.workflowyApi('getFileUrl', Date.now() - startTime, true, {
                     userId,
@@ -1214,7 +1214,7 @@ class WorkflowyClient {
                     maxHeight
                 });
 
-                return result;
+                return { url };
             } catch (error: any) {
                 this.structuredLogger.workflowyApi('getFileUrl', Date.now() - startTime, false, {
                     userId,
@@ -1222,6 +1222,44 @@ class WorkflowyClient {
                     error: error.message
                 });
                 throw this.enhanceError(error, 'getFileUrl');
+            }
+        }, RetryPresets.STANDARD);
+    }
+
+    /**
+     * Get a signed URL for downloading the original file (not a preview)
+     * @param userId The user ID
+     * @param nodeId The node ID containing the file
+     * @param username Optional username for authentication
+     * @param password Optional password for authentication
+     * @returns Object containing the signed URL for the original file
+     */
+    async getOriginalFileUrl(
+        userId: number | string,
+        nodeId: string,
+        username?: string,
+        password?: string
+    ): Promise<{ url: string }> {
+        return retryManager.withRetry(async () => {
+            const startTime = Date.now();
+            const { client } = await this.createAuthenticatedClient(username, password);
+
+            try {
+                const url = await client.getOriginalFileUrl(userId, nodeId);
+
+                this.structuredLogger.workflowyApi('getOriginalFileUrl', Date.now() - startTime, true, {
+                    userId,
+                    nodeId
+                });
+
+                return { url };
+            } catch (error: any) {
+                this.structuredLogger.workflowyApi('getOriginalFileUrl', Date.now() - startTime, false, {
+                    userId,
+                    nodeId,
+                    error: error.message
+                });
+                throw this.enhanceError(error, 'getOriginalFileUrl');
             }
         }, RetryPresets.STANDARD);
     }
