@@ -33,6 +33,14 @@ jobs:
           fetch-tags: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Fetch all tags
+        run: |
+          git fetch --tags --force
+          echo "Available tags:"
+          git tag -l | tail -10
+          echo "Latest tag:"
+          git describe --tags --abbrev=0 2>/dev/null || echo "No tags found"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
