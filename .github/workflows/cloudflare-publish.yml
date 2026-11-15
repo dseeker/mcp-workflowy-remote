@@ -578,7 +578,7 @@ jobs:
           echo "📤 Preparing artifacts..."
 
       - name: Upload Worker Logs
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: worker-logs-production-${{ github.run_number }}
@@ -823,7 +823,7 @@ jobs:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
       - name: Upload Preview Worker Logs
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: worker-logs-preview-${{ github.run_number }}
