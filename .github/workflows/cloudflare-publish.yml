@@ -17,6 +17,7 @@ concurrency:
 jobs:
   version:
     runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Semantic Versioning
     
@@ -71,6 +72,7 @@ jobs:
     needs: [version]
     if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
     name: Deploy to Production
     environment: production
 
@@ -591,6 +593,7 @@ jobs:
   deploy-preview:
     if: github.ref == 'refs/heads/preview' || github.event_name == 'pull_request'
     runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
     name: Create Preview Version
     environment: preview
 
