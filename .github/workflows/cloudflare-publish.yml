@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -42,7 +42,7 @@ jobs:
           git describe --tags --abbrev=0 2>/dev/null || echo "No tags found"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
@@ -76,7 +76,7 @@ jobs:
 
     steps:
       - name: Checkout (pull latest after semantic-release)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           # Pull the commit created by semantic-release
@@ -86,7 +86,7 @@ jobs:
         run: git pull origin main
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
@@ -578,7 +578,7 @@ jobs:
           echo "📤 Preparing artifacts..."
 
       - name: Upload Worker Logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: worker-logs-production-${{ github.run_number }}
@@ -596,12 +596,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
@@ -823,7 +823,7 @@ jobs:
           ALLOWED_API_KEYS: ${{ secrets.ALLOWED_API_KEYS }}
 
       - name: Upload Preview Worker Logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: worker-logs-preview-${{ github.run_number }}
